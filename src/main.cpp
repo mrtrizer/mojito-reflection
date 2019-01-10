@@ -52,14 +52,9 @@ std::string currentDir() {
     return currentDir;
 }
 
-int runClang(int argc, const char* argv[])
+int runClang(std::string command)
 {
-    stringstream ss;
-    ss << "clang ";
-    for (int i = 1; i < argc; ++i)
-        ss << argv[i] << " ";
-    
-    Process process(ss.str(), currentDir(), [](const char *bytes, size_t n) {
+    Process process(command, currentDir(), [](const char *bytes, size_t n) {
         std::cout << std::string(bytes, n);
     }, [](const char *bytes, size_t n) {
         std::cout << std::string(bytes, n);
@@ -149,8 +144,19 @@ private:
 
 class CustomCompilationDatabase : public CompilationDatabase {
 public:
-    CustomCompilationDatabase(std::string dir, int argc, const char** argv) : m_dir(dir) {
-    
+    CustomCompilationDatabase(std::string dir, std::string cppPath, int argc, const char** argv)
+        : m_dir(dir)
+        , m_cppPath(cppPath)
+    {
+        m_args.emplace_back(cppPath);
+        for (int i = 1; i < argc; ++i) {
+            std::string arg = argv[i];
+            if (arg.find("cpp-path") != std::string::npos)
+                continue;
+            if (arg[0] != '-')
+                m_fileName = arg;
+            m_args.emplace_back(std::move(arg));
+        }
     }
 
     virtual std::vector<CompileCommand> getCompileCommands(StringRef filePath) const override {
@@ -158,26 +164,83 @@ public:
     }
 
     virtual std::vector<std::string> getAllFiles() const override {
-        return {"test.cpp"};
+        return {m_fileName};
     }
 
     virtual std::vector<CompileCommand> getAllCompileCommands() const override {
-        return { CompileCommand { m_dir, "test.cpp", {"test.cpp"}, "test.o" } };
+        return { CompileCommand { m_dir, m_fileName, m_args, "" } };
     }
     
 private:
     std::string m_dir;
+    std::string m_cppPath;
+    std::vector<std::string> m_args;
+    std::string m_fileName;
 };
+
+std::multimap<std::string, std::string> parseArgs(int argc, const char *argv[]) {
+    std::multimap<std::string, std::string> args;
+
+    auto currentArg = args.end();
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg[0] == '-') {
+            auto separatorPos = arg.find('=');
+            currentArg = args.emplace(arg.substr(0, separatorPos), arg.substr(separatorPos + 1, arg.size()));
+            if (separatorPos == std::string::npos)
+                currentArg = args.end();
+        } else {
+            if (currentArg != args.end()) {
+                currentArg->second = arg;
+                currentArg = args.end();
+            } else {
+                args.emplace("", arg);
+            }
+        }
+    }
+    
+    return args;
+}
+
+std::string concatArgs(std::string exec, std::multimap<std::string, std::string> args) {
+    stringstream ss;
+    ss << exec;
+    for (auto arg : args) {
+        ss << arg.first << " " << arg.second << " ";
+    }
+    return ss.str();
+}
+
+const char* cppPathArg = "--cpp-path";
+
+std::multimap<std::string, std::string> clearArgs(const std::multimap<std::string, std::string>& args) {
+    auto tmp = args;
+    for( auto it = tmp.begin(); it != tmp.end(); ) {
+        if (it->first == cppPathArg)
+            it = tmp.erase(it);
+        else
+            ++it;
+    }
+    return tmp;
+}
 
 int main(int argc, const char *argv[])
 {
-    CommonOptionsParser optionParser(argc, argv, llvm::cl::GeneralCategory);
+    auto args = parseArgs(argc, argv);
+    
+    auto cppPathIter = args.find(cppPathArg);
+    if (cppPathIter == args.end())
+        throw std::runtime_error("Set compiller path with --cpp-path parameter");
+    
+    auto fileNameIter = args.find("");
+    if (fileNameIter == args.end())
+        throw std::runtime_error("No source file");
 
-   // CustomCompilationDatabase compilationDatabase(currentDir(), argc, argv);
+    CustomCompilationDatabase compilationDatabase(currentDir(), cppPathIter->second, argc, argv);
 
-    std::string fileName = argv[1];
+    std::string fileName = fileNameIter->second;
 
-    ClangTool tool(optionParser.getCompilations(), ArrayRef<std::string>(&fileName, 1));
+    ClangTool tool(compilationDatabase, ArrayRef<std::string>(&fileName, 1));
     
     MatchFinder finder;
     auto methodMatcher = cxxRecordDecl(isClass(), isDefinition()).bind("classes");
@@ -186,5 +249,5 @@ int main(int argc, const char *argv[])
     
     tool.run(newFrontendActionFactory(&finder).get());
 
-    return runClang(argc, argv);
+    return runClang(concatArgs(cppPathIter->second, clearArgs(args)));
 }
