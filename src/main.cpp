@@ -19,13 +19,12 @@
 #include <llvm/ADT/StringRef.h>
 
 #include <boost/process.hpp>
-
+#include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
 
 #include "generate_method.h"
 
 using namespace boost;
-using namespace boost::filesystem;
 using namespace std;
 using namespace llvm;
 using namespace clang::tooling;
@@ -48,7 +47,7 @@ int runClang(const std::string& command)
 
 std::string generateWrapperCpp(const std::string& className,
                                 const GeneratedMethods& generatedMethods,
-                                const path& originalFilePath) {
+                                const filesystem::path& originalFilePath) {
     std::vector<char> output(50000);
     snprintf(output.data(), output.size(),
             "#include <%s>\n"
@@ -71,7 +70,7 @@ std::string generateWrapperCpp(const std::string& className,
     return std::string(output.data());
 }
 
-void writeTextFile(const path& filePath, const std::string& data) {
+void writeTextFile(const filesystem::path& filePath, const std::string& data) {
     std::ofstream textFile;
     textFile.open(filePath.string());
     textFile << data;
@@ -142,7 +141,7 @@ private:
 
 class CustomCompilationDatabase : public CompilationDatabase {
 public:
-    CustomCompilationDatabase(std::string compillerCommand, const path& cppPath, const std::multimap<std::string, std::string>& args)
+    CustomCompilationDatabase(std::string compillerCommand, const filesystem::path& cppPath, const std::multimap<std::string, std::string>& args)
         : m_cppPath(cppPath)
     {
         m_args.emplace_back(compillerCommand);
@@ -166,11 +165,11 @@ public:
     }
 
     virtual std::vector<CompileCommand> getAllCompileCommands() const override {
-        return { CompileCommand { current_path().string(), m_cppPath.filename().string(), m_args, "" } };
+        return { CompileCommand { filesystem::current_path().string(), m_cppPath.filename().string(), m_args, "" } };
     }
     
 private:
-    path m_cppPath;
+    filesystem::path m_cppPath;
     std::vector<std::string> m_args;
 };
 
@@ -229,7 +228,7 @@ int main(int argc, const char *argv[])
     
     auto compileCommandIter = args.find(compileCommand);
     if (compileCommandIter == args.end())
-        throw std::runtime_error("Set compiller path with --cpp-path parameter");
+        throw std::runtime_error("Set compiller filesystem::path with --cpp-filesystem::path parameter");
     
     auto fileNameIter = args.find("");
     if (fileNameIter == args.end())
@@ -237,13 +236,13 @@ int main(int argc, const char *argv[])
     
     auto reflectionPathIter = args.find(reflectionDir);
     if (reflectionPathIter == args.end())
-        throw std::runtime_error("No reflection includes path use --reflection /path/to/reflection");
+        throw std::runtime_error("No reflection includes filesystem::path use --reflection /filesystem::path/to/reflection");
 
     std::string fileName = fileNameIter->second;
-    path fileAbsPath = current_path();
+    filesystem::path fileAbsPath = filesystem::current_path();
     fileAbsPath.append(fileName);
     fileAbsPath.normalize();
-    path newFileAbsPath = current_path();
+    filesystem::path newFileAbsPath = filesystem::current_path();
     newFileAbsPath.append("r_" + fileName);
     newFileAbsPath.normalize();
 

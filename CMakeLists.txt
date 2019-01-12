@@ -9,7 +9,7 @@ add_executable(${PROJECT_NAME}
     src/generate_method.h)
 
 # Link Boost
-find_package(Boost REQUIRED COMPONENTS filesystem)
+find_package(Boost REQUIRED COMPONENTS filesystem program_options)
 message(STATUS "Found Boost version: ${Boost_VERSION}")
 message(STATUS "Boost libs: ${Boost_LIBRARIES}")
 message(STATUS "Boost includes: ${Boost_INCLUDE_DIRS}")
@@ -60,9 +60,10 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
         target_link_libraries(${PROJECT_NAME} optimized ${LIB})
         target_link_libraries(${PROJECT_NAME} debug     ${LIB}d)
     endforeach()
+    target_compile_options(${PROJECT_NAME} PRIVATE ${CMAKE_CXX_FLAGS} /std=c++17)
 else()
     target_link_libraries(${PROJECT_NAME} ${LIBRARY_LIST})
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wno-unused-parameter -fno-strict-aliasing -fno-rtti")
+    target_compile_options(${PROJECT_NAME} PRIVATE ${CMAKE_CXX_FLAGS} -std=c++17)
 endif()
 
 
