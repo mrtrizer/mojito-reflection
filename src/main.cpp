@@ -1,17 +1,3 @@
-#include "clang/Frontend/FrontendActions.h"
-#include "clang/Tooling/CommonOptionsParser.h"
-#include <clang/Tooling/CompilationDatabase.h>
-#include "clang/Tooling/Tooling.h"
-#include "clang/ASTMatchers/ASTMatchers.h"
-#include "llvm/Support/CommandLine.h"
-
-#include "clang/ASTMatchers/ASTMatchers.h"
-#include "clang/ASTMatchers/ASTMatchFinder.h"
-#include "llvm/ADT/StringRef.h"
-
-#include "generate_method.h"
-#include "json.hpp"
-
 #include <cstdio>
 #include <iostream>
 #include <fstream>
@@ -21,15 +7,26 @@
 #include <sstream>
 #include <unordered_set>
 
-#include <process.hpp>
-#ifdef WINDOWS
-    #include <direct.h>
-    #define GetCurrentDir _getcwd
-#else
-    #include <unistd.h>
-    #define GetCurrentDir getcwd
- #endif
+#include <clang/Frontend/FrontendActions.h>
+#include <clang/Tooling/CommonOptionsParser.h>
+#include <clang/Tooling/CompilationDatabase.h>
+#include <clang/Tooling/Tooling.h>
+#include <clang/ASTMatchers/ASTMatchers.h>
+#include <llvm/Support/CommandLine.h>
 
+#include <clang/ASTMatchers/ASTMatchers.h>
+#include <clang/ASTMatchers/ASTMatchFinder.h>
+#include <llvm/ADT/StringRef.h>
+
+#include <json.hpp>
+
+#include <process.hpp>
+
+#include <boost/filesystem.hpp>
+
+#include "generate_method.h"
+
+using namespace boost::filesystem;
 using namespace std;
 using namespace TinyProcessLib;
 using namespace llvm;
@@ -37,24 +34,9 @@ using namespace clang::tooling;
 using namespace clang;
 using namespace clang::ast_matchers;
 
-std::string create(std::string directory, std::string command, std::string file) {
-    stringstream ss;
-    ss << "[ {\n \"directory\": \"" << directory << "\",\n \"command\": \"" << command << "\",\n \"file\": \"" << file << " \" \n} ]";
-    return ss.str();
-}
-
-std::string currentDir() {
-    char currentDir[FILENAME_MAX];
-    
-    if (!GetCurrentDir(currentDir, sizeof(currentDir)))
-        throw std::runtime_error("Can't get current dir");
-    
-    return currentDir;
-}
-
-int runClang(std::string command)
+int runClang(const std::string& command)
 {
-    Process process(command, currentDir(), [](const char *bytes, size_t n) {
+    Process process(command, current_path().string(), [](const char *bytes, size_t n) {
         std::cout << std::string(bytes, n);
     }, [](const char *bytes, size_t n) {
         std::cout << std::string(bytes, n);
@@ -63,10 +45,45 @@ int runClang(std::string command)
     return process.get_exit_status();
 }
 
+std::string generateWrapperCpp(const std::string& className,
+                                const GeneratedMethods& generatedMethods,
+                                const path& originalFilePath) {
+    std::vector<char> output(50000);
+    snprintf(output.data(), output.size(),
+            "#include <%s>\n"
+            "#include <Type.hpp>\n"
+            "#include <BasicTypesReflection.hpp>\n"
+            "\n"
+            "namespace flappy {\n"
+            "void register%s(Reflection& reflection) {\n"
+             "  reflection.registerType<%s>(\"%s\")\n"
+             "%s;\n"
+            "} \n"
+            "} \n"
+            "\n"
+            "",
+            originalFilePath.c_str(),
+            className.c_str(),
+            className.c_str(),
+            className.c_str(),
+            generatedMethods.methodBodies.c_str());
+    return std::string(output.data());
+}
+
+void writeTextFile(const path& filePath, const std::string& data) {
+    std::ofstream textFile;
+    textFile.open(filePath.string());
+    textFile << data;
+    textFile.close();
+}
+
+
 class ClassHandler : public MatchFinder::MatchCallback {
 public :
-    ClassHandler(std::string path)
-        : m_path(path)
+    using Callback = std::function<void(const CXXRecordDecl*, const std::string&)>;
+
+    ClassHandler(const Callback& callback)
+        : m_callback(callback)
     {}
 
     virtual void run(const MatchFinder::MatchResult &result) {
@@ -111,51 +128,34 @@ public :
                 std::cout << "Skip template specialization " << classDecl->getNameAsString() << std::endl;
                 return;
             }
-            if (m_wrappedClasses.find(className) != m_wrappedClasses.end())
-                return;
-
-            m_wrappedClasses.insert(className);
 
             std::cout << "class " << className << std::endl;
 
-            auto generatedMethods = processMethods(classDecl, className);
-
-            //auto cppFileData = generateWrapperCpp(className, generatedMethods);
-            //auto cppFileName = std::string("RR_") + className + ".cpp";
-            //writeTextFile(m_path + "/" + cppFileName, cppFileData);
-
-            //m_sourcesToGeneratedMap.emplace(cppFileName, result.SourceManager->getFilename(classDecl->getLocation()).str());
+            m_callback(classDecl, className);
         }
     }
 
-    const std::map<std::string, std::string>& sourcesToGeneratedMap() const {
-        return m_sourcesToGeneratedMap;
-    }
-    
-    const std::unordered_set<std::string>& wrappedClasses() const {
-        return m_wrappedClasses;
-    }
-
 private:
-    std::string m_path;
-    std::unordered_set<std::string> m_wrappedClasses;
-    std::map<std::string, std::string> m_sourcesToGeneratedMap;
+    Callback m_callback;
 };
+
+const char* compileCommand = "--compile-command";
+const char* reflection = "--reflection";
 
 class CustomCompilationDatabase : public CompilationDatabase {
 public:
-    CustomCompilationDatabase(std::string dir, std::string cppPath, int argc, const char** argv)
-        : m_dir(dir)
-        , m_cppPath(cppPath)
+    CustomCompilationDatabase(std::string compillerCommand, const path& cppPath, const std::multimap<std::string, std::string>& args)
+        : m_cppPath(cppPath)
     {
-        m_args.emplace_back(cppPath);
-        for (int i = 1; i < argc; ++i) {
-            std::string arg = argv[i];
-            if (arg.find("cpp-path") != std::string::npos)
-                continue;
-            if (arg[0] != '-')
-                m_fileName = arg;
-            m_args.emplace_back(std::move(arg));
+        m_args.emplace_back(compillerCommand);
+        for (auto arg : args) {
+            if (arg.first.empty())
+                m_args.emplace_back(cppPath.string());
+            else {
+                m_args.emplace_back(arg.first);
+                if (!arg.second.empty())
+                    m_args.emplace_back(arg.second);
+            }
         }
     }
 
@@ -164,18 +164,16 @@ public:
     }
 
     virtual std::vector<std::string> getAllFiles() const override {
-        return {m_fileName};
+        return { m_cppPath.filename().string() };
     }
 
     virtual std::vector<CompileCommand> getAllCompileCommands() const override {
-        return { CompileCommand { m_dir, m_fileName, m_args, "" } };
+        return { CompileCommand { current_path().string(), m_cppPath.filename().string(), m_args, "" } };
     }
     
 private:
-    std::string m_dir;
-    std::string m_cppPath;
+    path m_cppPath;
     std::vector<std::string> m_args;
-    std::string m_fileName;
 };
 
 std::multimap<std::string, std::string> parseArgs(int argc, const char *argv[]) {
@@ -185,10 +183,7 @@ std::multimap<std::string, std::string> parseArgs(int argc, const char *argv[]) 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg[0] == '-') {
-            auto separatorPos = arg.find('=');
-            currentArg = args.emplace(arg.substr(0, separatorPos), arg.substr(separatorPos + 1, arg.size()));
-            if (separatorPos == std::string::npos)
-                currentArg = args.end();
+            currentArg = args.emplace(arg, "");
         } else {
             if (currentArg != args.end()) {
                 currentArg->second = arg;
@@ -211,12 +206,10 @@ std::string concatArgs(std::string exec, std::multimap<std::string, std::string>
     return ss.str();
 }
 
-const char* cppPathArg = "--cpp-path";
-
 std::multimap<std::string, std::string> clearArgs(const std::multimap<std::string, std::string>& args) {
     auto tmp = args;
     for( auto it = tmp.begin(); it != tmp.end(); ) {
-        if (it->first == cppPathArg)
+        if (it->first == compileCommand || it->first == reflection)
             it = tmp.erase(it);
         else
             ++it;
@@ -228,26 +221,54 @@ int main(int argc, const char *argv[])
 {
     auto args = parseArgs(argc, argv);
     
-    auto cppPathIter = args.find(cppPathArg);
-    if (cppPathIter == args.end())
+    auto compileCommandIter = args.find(compileCommand);
+    if (compileCommandIter == args.end())
         throw std::runtime_error("Set compiller path with --cpp-path parameter");
     
     auto fileNameIter = args.find("");
     if (fileNameIter == args.end())
         throw std::runtime_error("No source file");
-
-    CustomCompilationDatabase compilationDatabase(currentDir(), cppPathIter->second, argc, argv);
+    
+    auto reflectionPathIter = args.find(reflection);
+    if (reflectionPathIter == args.end())
+        throw std::runtime_error("No reflection includes path use --reflection /path/to/reflection");
 
     std::string fileName = fileNameIter->second;
+    path fileAbsPath = current_path();
+    fileAbsPath.append(fileName);
+    fileAbsPath.normalize();
+    path newFileAbsPath = current_path();
+    newFileAbsPath.append("r_" + fileName);
+    newFileAbsPath.normalize();
+
+    auto outputArgs = clearArgs(args);
+
+
+    CustomCompilationDatabase compilationDatabase(compileCommandIter->second, fileAbsPath, outputArgs);
 
     ClangTool tool(compilationDatabase, ArrayRef<std::string>(&fileName, 1));
     
     MatchFinder finder;
     auto methodMatcher = cxxRecordDecl(isClass(), isDefinition()).bind("classes");
-    ClassHandler printer(currentDir());
+    ClassHandler printer([&fileAbsPath, &newFileAbsPath](const CXXRecordDecl* classDecl, const std::string& className) {
+        auto generatedMethods = processMethods(classDecl, className);
+        auto cppFileData = generateWrapperCpp(className, generatedMethods, fileAbsPath);
+        auto cppFileName = fileAbsPath.filename();
+        writeTextFile(newFileAbsPath, cppFileData);
+    });
     finder.addMatcher(methodMatcher, &printer);
     
     tool.run(newFrontendActionFactory(&finder).get());
+    
+    outputArgs.emplace("-I", reflectionPathIter->second);
+    outputArgs.emplace("-I", reflectionPathIter->second + "/../../Utility/src");
+    auto sourceFileIter = outputArgs.find("");
+    if (sourceFileIter == outputArgs.end())
+        throw std::runtime_error("No source file in args");
+    sourceFileIter->second = newFileAbsPath.string();
 
-    return runClang(concatArgs(cppPathIter->second, clearArgs(args)));
+    auto compillerFullCommand = concatArgs(compileCommandIter->second, outputArgs);
+    std::cout << compillerFullCommand << std::endl;
+
+    return runClang(compillerFullCommand);
 }
