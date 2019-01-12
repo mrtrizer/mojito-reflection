@@ -18,17 +18,15 @@
 #include <clang/ASTMatchers/ASTMatchFinder.h>
 #include <llvm/ADT/StringRef.h>
 
-#include <json.hpp>
-
-#include <process.hpp>
+#include <boost/process.hpp>
 
 #include <boost/filesystem.hpp>
 
 #include "generate_method.h"
 
+using namespace boost;
 using namespace boost::filesystem;
 using namespace std;
-using namespace TinyProcessLib;
 using namespace llvm;
 using namespace clang::tooling;
 using namespace clang;
@@ -36,13 +34,16 @@ using namespace clang::ast_matchers;
 
 int runClang(const std::string& command)
 {
-    Process process(command, current_path().string(), [](const char *bytes, size_t n) {
-        std::cout << std::string(bytes, n);
-    }, [](const char *bytes, size_t n) {
-        std::cout << std::string(bytes, n);
-    });
-    
-    return process.get_exit_status();
+    process::ipstream pipe_stream;
+    process::child c(command, process::std_out > pipe_stream);
+
+    std::string line;
+
+    while (pipe_stream && std::getline(pipe_stream, line) && !line.empty())
+        std::cout << line << std::endl;
+
+    c.wait();
+    return c.exit_code();
 }
 
 std::string generateWrapperCpp(const std::string& className,
@@ -139,9 +140,6 @@ private:
     Callback m_callback;
 };
 
-const char* compileCommand = "--compile-command";
-const char* reflection = "--reflection";
-
 class CustomCompilationDatabase : public CompilationDatabase {
 public:
     CustomCompilationDatabase(std::string compillerCommand, const path& cppPath, const std::multimap<std::string, std::string>& args)
@@ -206,10 +204,18 @@ std::string concatArgs(std::string exec, std::multimap<std::string, std::string>
     return ss.str();
 }
 
+const char* compileCommand = "--compile-command";
+const char* reflectionDir = "--reflection-dir";
+const char* reflectionOut = "--reflection-out";
+const char* reflectionName = "--reflection-name";
+
 std::multimap<std::string, std::string> clearArgs(const std::multimap<std::string, std::string>& args) {
     auto tmp = args;
     for( auto it = tmp.begin(); it != tmp.end(); ) {
-        if (it->first == compileCommand || it->first == reflection)
+        if (it->first == compileCommand
+            || it->first == reflectionDir
+            || it->first == reflectionOut
+            || it->first == reflectionName)
             it = tmp.erase(it);
         else
             ++it;
@@ -229,7 +235,7 @@ int main(int argc, const char *argv[])
     if (fileNameIter == args.end())
         throw std::runtime_error("No source file");
     
-    auto reflectionPathIter = args.find(reflection);
+    auto reflectionPathIter = args.find(reflectionDir);
     if (reflectionPathIter == args.end())
         throw std::runtime_error("No reflection includes path use --reflection /path/to/reflection");
 

@@ -8,15 +8,8 @@ add_executable(${PROJECT_NAME}
     src/generate_method.cpp
     src/generate_method.h)
 
-# Include JSON
-target_include_directories(${PROJECT_NAME} PRIVATE lib/json)
-
-# Link Tiny-process-library
-add_subdirectory(lib/tiny-process-library)
-target_link_libraries(${PROJECT_NAME} tiny-process-library)
-
 # Link Boost
-find_package(Boost REQUIRED filesystem)
+find_package(Boost REQUIRED COMPONENTS filesystem)
 message(STATUS "Found Boost version: ${Boost_VERSION}")
 message(STATUS "Boost libs: ${Boost_LIBRARIES}")
 message(STATUS "Boost includes: ${Boost_INCLUDE_DIRS}")
