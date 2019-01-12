@@ -8,14 +8,8 @@
 #include <unordered_set>
 
 #include <clang/Frontend/FrontendActions.h>
-#include <clang/Tooling/CommonOptionsParser.h>
-#include <clang/Tooling/CompilationDatabase.h>
-#include <clang/Tooling/Tooling.h>
-#include <clang/ASTMatchers/ASTMatchers.h>
-#include <llvm/Support/CommandLine.h>
 
-#include <clang/ASTMatchers/ASTMatchers.h>
-#include <clang/ASTMatchers/ASTMatchFinder.h>
+
 #include <llvm/ADT/StringRef.h>
 
 #include <boost/process.hpp>
@@ -23,6 +17,8 @@
 #include <boost/filesystem.hpp>
 
 #include "generate_method.h"
+#include "CustomCompilationDB.hpp"
+#include "ClassParser.hpp"
 
 using namespace boost;
 using namespace std;
@@ -78,100 +74,6 @@ void writeTextFile(const filesystem::path& filePath, const std::string& data) {
 }
 
 
-class ClassHandler : public MatchFinder::MatchCallback {
-public :
-    using Callback = std::function<void(const CXXRecordDecl*, const std::string&)>;
-
-    ClassHandler(const Callback& callback)
-        : m_callback(callback)
-    {}
-
-    virtual void run(const MatchFinder::MatchResult &result) {
-        if (const CXXRecordDecl *classDecl = result.Nodes.getNodeAs<clang::CXXRecordDecl>("classes")) {
-        
-            auto className = classDecl->getNameAsString();
-        
-            if(!classDecl->hasAttrs())
-                return;
-            
-            clang::AttrVec vec = classDecl->getAttrs();
-
-            if (strcmp(vec[0]->getSpelling(), "annotate") != 0)
-                return;
-            
-            
-            SourceLocation startLoc = vec[0]->getRange().getBegin();
-            SourceLocation endLoc = vec[0]->getRange().getEnd();
-  
-            std::cout << "isMacroID: " << startLoc.isMacroID() << std::endl;
-
-            if( startLoc.isMacroID() ) {
-                startLoc = result.SourceManager->getImmediateSpellingLoc( startLoc );
-                endLoc = result.SourceManager->getImmediateSpellingLoc( endLoc );
-            }
-            
-            auto tokenRange = CharSourceRange::getCharRange(startLoc, endLoc);
-            auto annotateValue = Lexer::getSourceText(tokenRange, *result.SourceManager, result.Context->getLangOpts()).str();
-            std::cout << className << " : " << vec[0]->getSpelling() << " : " << annotateValue << std::endl;
-            if (annotateValue != "annotate(\"reflect\"")
-                return;
-        
-            if (classDecl->getDescribedClassTemplate() != nullptr) {
-                std::cout << "Skip template class " << classDecl->getNameAsString() << std::endl;
-                return;
-            }
-            if (classDecl->getDeclKind() == clang::Decl::ClassTemplatePartialSpecialization) {
-                std::cout << "Skip template partial specialization " << classDecl->getNameAsString() << std::endl;
-                return;
-            }
-            if (classDecl->getDeclKind() == clang::Decl::ClassTemplateSpecialization) {
-                std::cout << "Skip template specialization " << classDecl->getNameAsString() << std::endl;
-                return;
-            }
-
-            std::cout << "class " << className << std::endl;
-
-            m_callback(classDecl, className);
-        }
-    }
-
-private:
-    Callback m_callback;
-};
-
-class CustomCompilationDatabase : public CompilationDatabase {
-public:
-    CustomCompilationDatabase(std::string compillerCommand, const filesystem::path& cppPath, const std::multimap<std::string, std::string>& args)
-        : m_cppPath(cppPath)
-    {
-        m_args.emplace_back(compillerCommand);
-        for (auto arg : args) {
-            if (arg.first.empty())
-                m_args.emplace_back(cppPath.string());
-            else {
-                m_args.emplace_back(arg.first);
-                if (!arg.second.empty())
-                    m_args.emplace_back(arg.second);
-            }
-        }
-    }
-
-    virtual std::vector<CompileCommand> getCompileCommands(StringRef filePath) const override {
-        return getAllCompileCommands();
-    }
-
-    virtual std::vector<std::string> getAllFiles() const override {
-        return { m_cppPath.filename().string() };
-    }
-
-    virtual std::vector<CompileCommand> getAllCompileCommands() const override {
-        return { CompileCommand { filesystem::current_path().string(), m_cppPath.filename().string(), m_args, "" } };
-    }
-    
-private:
-    filesystem::path m_cppPath;
-    std::vector<std::string> m_args;
-};
 
 std::multimap<std::string, std::string> parseArgs(int argc, const char *argv[]) {
     std::multimap<std::string, std::string> args;
@@ -255,13 +157,13 @@ int main(int argc, const char *argv[])
     
     MatchFinder finder;
     auto methodMatcher = cxxRecordDecl(isClass(), isDefinition()).bind("classes");
-    ClassHandler printer([&fileAbsPath, &newFileAbsPath](const CXXRecordDecl* classDecl, const std::string& className) {
+    ClassParser classParser([&fileAbsPath, &newFileAbsPath](const CXXRecordDecl* classDecl, const std::string& className) {
         auto generatedMethods = processMethods(classDecl, className);
         auto cppFileData = generateWrapperCpp(className, generatedMethods, fileAbsPath);
         auto cppFileName = fileAbsPath.filename();
         writeTextFile(newFileAbsPath, cppFileData);
     });
-    finder.addMatcher(methodMatcher, &printer);
+    finder.addMatcher(methodMatcher, &classParser);
     
     tool.run(newFrontendActionFactory(&finder).get());
     

@@ -3,10 +3,9 @@ cmake_minimum_required(VERSION 2.8.8)
 set(PROJECT_NAME reflection_generator)
 project(${PROJECT_NAME})
 
-add_executable(${PROJECT_NAME} 
-    src/main.cpp
-    src/generate_method.cpp
-    src/generate_method.h)
+file(GLOB PROJECT_SOURCES "${PROJECT_SOURCE_DIR}/src/*.hpp" "${PROJECT_SOURCE_DIR}/src/*.cpp")
+
+add_executable(${PROJECT_NAME} ${PROJECT_SOURCES})
 
 # Link Boost
 find_package(Boost REQUIRED COMPONENTS filesystem program_options)
