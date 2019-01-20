@@ -10,6 +10,8 @@ set(CMAKE_XCODE_ATTRIBUTE_CXX "${CMAKE_CXX_COMPILER}")
 
 add_executable(${PROJECT_NAME} test.cpp)
 
+target_compile_options(${PROJECT_NAME} PRIVATE ${CMAKE_CXX_FLAGS} -std=c++17)
+
 # Link Boost
 find_package(Boost REQUIRED COMPONENTS unit_test_framework)
 message(STATUS "Found Boost version: ${Boost_VERSION}")

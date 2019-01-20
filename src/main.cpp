@@ -166,6 +166,7 @@ public:
     
     struct ReflectedFile {
         boost::filesystem::path cppFilePath;
+        boost::filesystem::path reflectedCppFilePath;
         boost::filesystem::path outFilePath;
         std::string functionName;
     };
@@ -174,8 +175,16 @@ public:
     
     using FilePath = boost::filesystem::path;
     
-    void addReflectedFile(const FilePath& fileName, const FilePath& reflectedFileName, const std::string& funcName) {
-        m_reflectedFiles.emplace_back(ReflectedFile{fileName, reflectedFileName, funcName});
+    void addReflectedFile(const FilePath& cppFilePath, const FilePath& reflectedCppFilePath, const std::string& funcName) {
+        auto iter = std::find_if(
+            m_reflectedFiles.begin(),
+            m_reflectedFiles.end(),
+            [&cppFilePath](const auto& item) { return item.cppFilePath == cppFilePath; });
+        auto reflectedFile = [&]()-> ReflectedFile { return {cppFilePath, reflectedCppFilePath, "", funcName}; };
+        if (iter == m_reflectedFiles.end())
+            m_reflectedFiles.emplace_back(reflectedFile());
+        else
+            *iter = reflectedFile();
     }
     
     void save() {
@@ -183,13 +192,17 @@ public:
         
         ptree pt;
         
+        ptree subtree;
+        
         for (const auto& reflectedFile : m_reflectedFiles) {
             ptree reflectedFileData;
             reflectedFileData.add(cppFilePathKey, reflectedFile.cppFilePath.string());
             reflectedFileData.add(outFilePathKey, reflectedFile.outFilePath.string());
             reflectedFileData.add(functionNameKey, reflectedFile.functionName);
-            pt.add_child(reflectedFilesKey, reflectedFileData);
+            subtree.push_back(std::make_pair("", reflectedFileData));
         }
+        
+        pt.add_child(reflectedFilesKey, subtree);
         
         write_json(m_reflectionDbFilePath.string(), pt);
     }
@@ -206,16 +219,14 @@ private:
 std::string generateReflectionCpp(const ReflectionDB& reflectionDB) {
     std::stringstream ss;
     
-    ss << "#include<Reflection.hpp>" << std::endl;
-    ss << std::endl;
+    ss << "namespace flappy { class Reflection; }" << std::endl;
     ss << "using namespace flappy;" << std::endl;
     ss << std::endl;
     for (auto file : reflectionDB.reflectedFiles()) {
         if (filesystem::exists(file.cppFilePath))
             ss << "void " << file.functionName << "(Reflection&);" << std::endl;
     }
-    ss << "Reflection generateReflection() {" << std::endl;
-    ss << "    Reflection reflectionDB;" << std::endl;
+    ss << "Reflection& generateReflection(Reflection& reflectionDB) {" << std::endl;
     
     for (auto file : reflectionDB.reflectedFiles()) {
         if (filesystem::exists(file.cppFilePath))
@@ -281,13 +292,8 @@ int main(int argc, const char *argv[])
         }
         
         compillerArgs.setCppInputFiles(generatedCppFilePaths);
-
-        {
-            auto reflectionIncludesPath = generatorArgs.reflectionIncludesPath();
-            compillerArgs.addIncludePath(reflectionIncludesPath);
-            reflectionIncludesPath.append("/../../Utility/src");
-            compillerArgs.addIncludePath(reflectionIncludesPath);
-        }
+        
+        reflectionDB.save();
     }
     
     if (compillerArgs.output().extension() != ".o") {
@@ -298,6 +304,14 @@ int main(int argc, const char *argv[])
         compillerArgs.addCppInputFile(reflectionCppPath);
         filesystem::create_directories(generatorArgs.reflectionOutPath());
         writeTextFile(reflectionCppPath, reflectionCppData);
+    }
+    
+    // Include path is needed for linking too, because I adding Reflection.cpp to link command.
+    {
+        auto reflectionIncludesPath = generatorArgs.reflectionIncludesPath();
+        compillerArgs.addIncludePath(reflectionIncludesPath);
+        reflectionIncludesPath.append("/../../Utility/src");
+        compillerArgs.addIncludePath(reflectionIncludesPath);
     }
 
     return runClang(compillerArgs.serialize());

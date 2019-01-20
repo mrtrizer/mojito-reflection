@@ -17,9 +17,7 @@ std::vector<std::string> CompillerArgs::allArguments() const {
     }
     for (const auto& define : m_defines) {
         arguments.emplace_back("-D");
-        arguments.emplace_back(define.first);
-        if (!define.second.empty())
-            arguments.emplace_back("=" + define.second);
+        arguments.emplace_back(define.first + (define.second.empty() ? "" : "=" + define.second));
     }
     if (!m_output.empty()) {
         arguments.emplace_back("-o");
