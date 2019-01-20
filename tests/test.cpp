@@ -1,3 +1,5 @@
+#include <iostream>
+
 class __attribute((annotate("reflect"))) Test {
 public:
     Test() = default;
@@ -5,5 +7,6 @@ public:
 };
 
 int main() {
+    std::cout << "Hello, World!" << std::endl;
     return 0;
 }

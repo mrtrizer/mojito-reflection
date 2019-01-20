@@ -5,9 +5,14 @@
 #include <clang/Tooling/CompilationDatabase.h>
 #include <llvm/ADT/StringRef.h>
 
+class CompillerArgs;
+namespace boost::filesystem {
+    class path;
+}
+
 class CustomCompilationDatabase : public clang::tooling::CompilationDatabase {
 public:
-    CustomCompilationDatabase(std::string compillerCommand, const boost::filesystem::path& cppPath, const std::multimap<std::string, std::string>& args);
+    CustomCompilationDatabase(const boost::filesystem::path& compillerPath, const CompillerArgs& compillerArgs);
 
     std::vector<clang::tooling::CompileCommand> getCompileCommands(llvm::StringRef filePath) const override;
     
@@ -16,6 +21,6 @@ public:
     std::vector<clang::tooling::CompileCommand> getAllCompileCommands() const override;
     
 private:
-    boost::filesystem::path m_cppPath;
-    std::vector<std::string> m_args;
+    const CompillerArgs& m_compillerArgs;
+    boost::filesystem::path m_compillerPath;
 };

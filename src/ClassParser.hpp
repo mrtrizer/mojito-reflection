@@ -7,7 +7,7 @@
 
 class ClassParser : public clang::ast_matchers::MatchFinder::MatchCallback {
 public :
-    using Callback = std::function<void(const clang::CXXRecordDecl*, const std::string&)>;
+    using Callback = std::function<void(const clang::CXXRecordDecl*, const std::string&, const std::string&)>;
 
     ClassParser(const Callback& callback);
 

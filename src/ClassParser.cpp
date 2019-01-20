@@ -38,6 +38,7 @@ void ClassParser::run(const MatchFinder::MatchResult &result) {
         
         auto tokenRange = CharSourceRange::getCharRange(startLoc, endLoc);
         auto annotateValue = Lexer::getSourceText(tokenRange, *result.SourceManager, result.Context->getLangOpts()).str();
+        
         std::cout << className << " : " << vec[0]->getSpelling() << " : " << annotateValue << std::endl;
         if (annotateValue != "annotate(\"reflect\"")
             return;
@@ -57,6 +58,8 @@ void ClassParser::run(const MatchFinder::MatchResult &result) {
 
         std::cout << "class " << className << std::endl;
 
-        m_callback(classDecl, className);
+        auto fileName = result.SourceManager->getFilename(classDecl->getLocation());
+
+        m_callback(classDecl, fileName, className);
     }
 }
