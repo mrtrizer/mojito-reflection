@@ -9,6 +9,7 @@
 
 #include <clang/Frontend/FrontendActions.h>
 #include <llvm/ADT/StringRef.h>
+#include <clang/Tooling/Tooling.h>
 
 #include <boost/process.hpp>
 #include <boost/program_options.hpp>
@@ -16,11 +17,11 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 
-#include "generate_method.h"
 #include "CustomCompilationDB.hpp"
 #include "ClassParser.hpp"
 #include "CompillerArgs.hpp"
 #include "GeneratorArgs.hpp"
+#include "PersistentReflectionDB.hpp"
 
 using namespace boost;
 using namespace std;
@@ -44,11 +45,6 @@ int runClang(const std::string& command)
     c.wait();
     return c.exit_code();
 }
-
-struct TypeReflection {
-    std::string typeName;
-    GeneratedMethods methods;
-};
 
 struct ReflectionUnit {
     filesystem::path originalPath;
@@ -139,84 +135,7 @@ CompillerArgs parseCompillerArgs(const boost::filesystem::path& compillerPath, c
     return compillerArgs;
 }
 
-class ReflectionDB {
-public:
-    ReflectionDB(const boost::filesystem::path& reflectionDbFilePath)
-        : m_reflectionDbFilePath(reflectionDbFilePath)
-    {
-        using namespace boost::property_tree;
-    
-        std::ifstream ifs (reflectionDbFilePath.string());
-        
-        if (!ifs.eof() && !ifs.fail()) {
-            ptree pt;
-
-            read_json(ifs, pt);
-            
-            for (const auto& value : pt.get_child(reflectedFilesKey)) {
-                auto reflectedFileData = value.second;
-                ReflectedFile reflectedFile;
-                reflectedFile.cppFilePath = reflectedFileData.get_child(cppFilePathKey).get_value<std::string>();
-                reflectedFile.outFilePath = reflectedFileData.get_child(outFilePathKey).get_value<std::string>();
-                reflectedFile.functionName = reflectedFileData.get_child(functionNameKey).get_value<std::string>();
-                m_reflectedFiles.emplace_back(reflectedFile);
-            }
-        }
-    }
-    
-    struct ReflectedFile {
-        boost::filesystem::path cppFilePath;
-        boost::filesystem::path reflectedCppFilePath;
-        boost::filesystem::path outFilePath;
-        std::string functionName;
-    };
-    
-    const std::vector<ReflectedFile>& reflectedFiles() const { return m_reflectedFiles; }
-    
-    using FilePath = boost::filesystem::path;
-    
-    void addReflectedFile(const FilePath& cppFilePath, const FilePath& reflectedCppFilePath, const std::string& funcName) {
-        auto iter = std::find_if(
-            m_reflectedFiles.begin(),
-            m_reflectedFiles.end(),
-            [&cppFilePath](const auto& item) { return item.cppFilePath == cppFilePath; });
-        auto reflectedFile = [&]()-> ReflectedFile { return {cppFilePath, reflectedCppFilePath, "", funcName}; };
-        if (iter == m_reflectedFiles.end())
-            m_reflectedFiles.emplace_back(reflectedFile());
-        else
-            *iter = reflectedFile();
-    }
-    
-    void save() {
-        using namespace boost::property_tree;
-        
-        ptree pt;
-        
-        ptree subtree;
-        
-        for (const auto& reflectedFile : m_reflectedFiles) {
-            ptree reflectedFileData;
-            reflectedFileData.add(cppFilePathKey, reflectedFile.cppFilePath.string());
-            reflectedFileData.add(outFilePathKey, reflectedFile.outFilePath.string());
-            reflectedFileData.add(functionNameKey, reflectedFile.functionName);
-            subtree.push_back(std::make_pair("", reflectedFileData));
-        }
-        
-        pt.add_child(reflectedFilesKey, subtree);
-        
-        write_json(m_reflectionDbFilePath.string(), pt);
-    }
-    
-private:
-    boost::filesystem::path m_reflectionDbFilePath;
-    std::vector<ReflectedFile> m_reflectedFiles;
-    inline static const char* reflectedFilesKey = "reflected_files";
-    inline static const char* cppFilePathKey = "cpp_file_path";
-    inline static const char* outFilePathKey = "out_file_path";
-    inline static const char* functionNameKey = "function_name";
-};
-
-std::string generateReflectionCpp(const ReflectionDB& reflectionDB) {
+std::string generateReflectionCpp(const PersistentReflectionDB& reflectionDB) {
     std::stringstream ss;
     
     ss << "namespace flappy { class Reflection; }" << std::endl;
@@ -247,7 +166,7 @@ int main(int argc, const char *argv[])
 
     auto reflectionDBPath = generatorArgs.reflectionOutPath();
     reflectionDBPath.append("ReflectionDB.json");
-    auto reflectionDB = ReflectionDB(reflectionDBPath);
+    auto reflectionDB = PersistentReflectionDB(reflectionDBPath);
 
     if (!compillerArgs.cppInputFiles().empty()) {
         std::cout << "Building sources" << std::endl;
@@ -263,13 +182,16 @@ int main(int argc, const char *argv[])
 
         MatchFinder finder;
         auto methodMatcher = cxxRecordDecl(isClass(), isDefinition()).bind("classes");
-        ClassParser classParser([&generatedCppFiles](const CXXRecordDecl* classDecl, const std::string& fileName, const std::string& className) {
+        ClassParser classParser([&generatedCppFiles](const TypeReflection& typeReflection,
+                                                    const std::string& fileName,
+                                                    const std::string& className)
+        {
             auto originalFilePath = filesystem::absolute(fileName).normalize();
             filesystem::path newFilePath;
             newFilePath.append(originalFilePath.parent_path().string());
             newFilePath.append(originalFilePath.stem().string() + "_r" + originalFilePath.extension().string());
             newFilePath.normalize();
-            auto typeReflection = TypeReflection{ className, processMethods(classDecl, className) };
+            
             auto iter = generatedCppFiles.find(newFilePath.string());
             if (iter == generatedCppFiles.end()) {
                 auto reflectionUnitName = "register_" + originalFilePath.stem().string();

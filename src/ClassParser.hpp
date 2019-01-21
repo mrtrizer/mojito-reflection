@@ -2,12 +2,20 @@
 
 #include <functional>
 
-#include <clang/ASTMatchers/ASTMatchers.h>
 #include <clang/ASTMatchers/ASTMatchFinder.h>
+
+struct GeneratedMethods {
+    std::string methodBodies;
+};
+
+struct TypeReflection {
+    std::string typeName;
+    GeneratedMethods methods;
+};
 
 class ClassParser : public clang::ast_matchers::MatchFinder::MatchCallback {
 public :
-    using Callback = std::function<void(const clang::CXXRecordDecl*, const std::string&, const std::string&)>;
+    using Callback = std::function<void(const TypeReflection&, const std::string&, const std::string&)>;
 
     ClassParser(const Callback& callback);
 

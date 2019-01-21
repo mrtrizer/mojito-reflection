@@ -29,6 +29,8 @@ public:
     void addUnrecognizedArg(const std::string& unrecognized) { m_unrecognizedArgs.emplace_back(unrecognized); }
     const std::vector<std::string> unrecognizedArgs() { return m_unrecognizedArgs; }
     
+    std::vector<std::string> clangArguments() const;
+    
     std::vector<std::string> allArguments() const;
     
     std::string serialize() const;
