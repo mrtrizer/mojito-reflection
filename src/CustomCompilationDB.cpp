@@ -27,7 +27,7 @@ std::vector<clang::tooling::CompileCommand> CustomCompilationDatabase::getAllCom
         commands.emplace_back(clang::tooling::CompileCommand {
                                 boost::filesystem::current_path().string(),
                                 cpp.string(),
-                                m_compillerArgs.allArguments(),
+                                m_compillerArgs.clangArguments(),
                                 ""});
     return commands;
 }

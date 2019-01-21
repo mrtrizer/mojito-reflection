@@ -27,13 +27,12 @@ public:
     void addLinkerOption(const std::string& option) { m_linkerOptions.emplace_back(option); }
     
     void addUnrecognizedArg(const std::string& unrecognized) { m_unrecognizedArgs.emplace_back(unrecognized); }
-    const std::vector<std::string> unrecognizedArgs() { return m_unrecognizedArgs; }
+    const std::vector<std::string> unrecognizedArgs() const { return m_unrecognizedArgs; }
+    
+    void setCppStandard(const std::string& standard) { m_cppStandard = standard; }
+    const std::string& cppStandard() const { return m_cppStandard; }
     
     std::vector<std::string> clangArguments() const;
-    
-    std::vector<std::string> allArguments() const;
-    
-    std::string serialize() const;
     
 private:
     FilePathList m_objInputFiles;
@@ -43,4 +42,5 @@ private:
     boost::filesystem::path m_output;
     std::vector<std::string> m_linkerOptions;
     std::vector<std::string> m_unrecognizedArgs;
+    std::string m_cppStandard = "c++11";
 };

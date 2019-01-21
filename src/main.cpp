@@ -79,7 +79,7 @@ void writeTextFile(const filesystem::path& filePath, const std::string& data) {
     textFile.close();
 }
 
-std::tuple<std::string, std::string> splitDefine(const std::string& sourceStr) {
+std::tuple<std::string, std::string> splitArgument(const std::string& sourceStr) {
     std::string::size_type eq = sourceStr.find('=');
     std::string value = eq != std::string::npos ? sourceStr.substr(eq + 1) : "";
     return {sourceStr.substr(2, eq - 2), value};
@@ -93,7 +93,8 @@ CompillerArgs parseCompillerArgs(const boost::filesystem::path& compillerPath, c
         UNKNOWN,
         DEFINE,
         OUTPUT,
-        XLINKER_OPTION
+        XLINKER_OPTION,
+        STANDARD
     } state = UNKNOWN;
     
     for (const auto& arg : arguments) {
@@ -101,10 +102,17 @@ CompillerArgs parseCompillerArgs(const boost::filesystem::path& compillerPath, c
             state = arg.size() > 2 ? compillerArgs.addIncludePath(arg.substr(2)), UNKNOWN : INCLUDE_PATH;
         } else if (state == UNKNOWN && arg.find("-D") == 0) {
             if (arg.size() > 2) {
-                auto split = splitDefine(arg);
+                auto split = splitArgument(arg);
                 compillerArgs.addDefine(std::get<0>(split), std::get<1>(split));
             } else {
                 state = DEFINE;
+            }
+        } else if (state == UNKNOWN && arg.find("-std") != std::string::npos) {
+            auto split = splitArgument(arg);
+            if (!std::get<1>(split).empty()) {
+                compillerArgs.setCppStandard(std::get<1>(split));
+            } else {
+                state = STANDARD;
             }
         } else if (state == UNKNOWN && arg.size() == 2 && arg.find("-o") == 0) {
             state = OUTPUT;
@@ -118,7 +126,7 @@ CompillerArgs parseCompillerArgs(const boost::filesystem::path& compillerPath, c
             compillerArgs.addIncludePath(arg);
             state = UNKNOWN;
         } else if (state == DEFINE) {
-            auto split = splitDefine(arg);
+            auto split = splitArgument(arg);
             compillerArgs.addDefine(std::get<0>(split), std::get<1>(split));
             state = UNKNOWN;
         } else if (state == OUTPUT) {
@@ -127,12 +135,29 @@ CompillerArgs parseCompillerArgs(const boost::filesystem::path& compillerPath, c
         } else if (state == XLINKER_OPTION) {
             compillerArgs.addLinkerOption(arg);
             state = UNKNOWN;
+        } else if (state == STANDARD) {
+            compillerArgs.setCppStandard(arg);
+            state = UNKNOWN;
         } else {
             compillerArgs.addUnrecognizedArg(arg);
         }
     }
     
     return compillerArgs;
+}
+
+std::string serializeCompillerArgs(const CompillerArgs& compillerArgs) {
+    std::stringstream ss;
+    
+    auto arguments = compillerArgs.clangArguments();
+    
+    for (const auto& unrecognized : compillerArgs.unrecognizedArgs())
+        arguments.emplace_back(unrecognized);
+    
+    for (const auto& arg : compillerArgs.clangArguments())
+        ss << arg << ' ';
+
+    return ss.str();
 }
 
 std::string generateReflectionCpp(const PersistentReflectionDB& reflectionDB) {
@@ -236,5 +261,5 @@ int main(int argc, const char *argv[])
         compillerArgs.addIncludePath(reflectionIncludesPath);
     }
 
-    return runClang(compillerArgs.serialize());
+    return runClang(serializeCompillerArgs(compillerArgs));
 }
