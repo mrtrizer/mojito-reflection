@@ -61,7 +61,7 @@ std::string generateWrapperCpp(ReflectionUnit reflectionUnit) {
     ss << std::endl;
     ss << "using namespace flappy;" << std::endl;
     ss << std::endl;
-    ss << "void " << reflectionUnit.name << "(Reflection& reflection) {" << std::endl;
+    ss << "void " << reflectionUnit.name << "(flappy::Reflection& reflection) {" << std::endl;
     for (const auto& type : reflectionUnit.reflectedTypes) {
         ss << "  reflection.registerType<" << type.typeName << ">(\"" << type.typeName  << "\")" << std::endl;
         ss << type.methods.methodBodies << ";" << std::endl;
@@ -146,10 +146,12 @@ CompillerArgs parseCompillerArgs(const boost::filesystem::path& compillerPath, c
     return compillerArgs;
 }
 
-std::string serializeCompillerArgs(const CompillerArgs& compillerArgs) {
+std::string serializeCompillerArgs(const filesystem::path& compillerPath, const CompillerArgs& compillerArgs) {
     std::stringstream ss;
     
     auto arguments = compillerArgs.clangArguments();
+    
+    ss << compillerPath.string() << ' ';
     
     for (const auto& unrecognized : compillerArgs.unrecognizedArgs())
         arguments.emplace_back(unrecognized);
@@ -168,16 +170,17 @@ std::string generateReflectionCpp(const PersistentReflectionDB& reflectionDB) {
     ss << std::endl;
     for (auto file : reflectionDB.reflectedFiles()) {
         if (filesystem::exists(file.cppFilePath))
-            ss << "void " << file.functionName << "(Reflection&);" << std::endl;
+            ss << "extern void " << file.functionName << "(flappy::Reflection&);" << std::endl;
     }
-    ss << "Reflection& generateReflection(Reflection& reflectionDB) {" << std::endl;
+    ss << std::endl;
+    ss << "bool generateReflection(flappy::Reflection& reflectionDB) {" << std::endl;
     
     for (auto file : reflectionDB.reflectedFiles()) {
         if (filesystem::exists(file.cppFilePath))
             ss << "    " << file.functionName << "(reflectionDB);" << std::endl;
     }
     
-    ss << "    return reflectionDB;" << std::endl;
+    ss << "    return true;" << std::endl;
     ss << "}" << std::endl;
     
     return ss.str();
@@ -261,5 +264,5 @@ int main(int argc, const char *argv[])
         compillerArgs.addIncludePath(reflectionIncludesPath);
     }
 
-    return runClang(serializeCompillerArgs(compillerArgs));
+    return runClang(serializeCompillerArgs(generatorArgs.compillerPath(), compillerArgs));
 }

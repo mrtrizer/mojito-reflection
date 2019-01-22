@@ -3,6 +3,7 @@
 #include <fstream>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
+#include <boost/filesystem.hpp>
 
 PersistentReflectionDB::PersistentReflectionDB(const boost::filesystem::path& reflectionDbFilePath)
     : m_reflectionDbFilePath(reflectionDbFilePath)
@@ -41,6 +42,7 @@ void PersistentReflectionDB::addReflectedFile(const FilePath& cppFilePath, const
 
 void PersistentReflectionDB::save() {
     using namespace boost::property_tree;
+    using namespace boost::filesystem;
     
     ptree pt;
     
@@ -56,5 +58,6 @@ void PersistentReflectionDB::save() {
     
     pt.add_child(reflectedFilesKey, subtree);
     
+    create_directories(m_reflectionDbFilePath.parent_path());
     write_json(m_reflectionDbFilePath.string(), pt);
 }

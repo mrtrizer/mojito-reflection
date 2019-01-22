@@ -2,6 +2,8 @@
 
 #include "CompillerArgs.hpp"
 
+#include <iostream>
+
 CustomCompilationDatabase::CustomCompilationDatabase(const boost::filesystem::path& compillerPath, const CompillerArgs& compillerArgs)
     : m_compillerArgs(compillerArgs)
     , m_compillerPath(compillerPath)
@@ -23,11 +25,16 @@ std::vector<std::string> CustomCompilationDatabase::getAllFiles() const {
 
 std::vector<clang::tooling::CompileCommand> CustomCompilationDatabase::getAllCompileCommands() const {
     std::vector<clang::tooling::CompileCommand> commands;
+    auto arguments = m_compillerArgs.clangArguments();
+    arguments.insert(arguments.begin(), "c++");
+    for (const auto& arg : arguments)
+        std::cout << arg << ' ';
+    std::cout << std::endl;
     for (const auto& cpp : m_compillerArgs.cppInputFiles())
         commands.emplace_back(clang::tooling::CompileCommand {
                                 boost::filesystem::current_path().string(),
                                 cpp.string(),
-                                m_compillerArgs.clangArguments(),
+                                arguments,
                                 ""});
     return commands;
 }

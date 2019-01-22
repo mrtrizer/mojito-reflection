@@ -5,8 +5,6 @@
 std::vector<std::string> CompillerArgs::clangArguments() const {
     std::vector<std::string> arguments;
     
-    arguments.emplace_back("clang++");
-    
     for (const auto& filePath : m_objInputFiles)
         arguments.emplace_back(filePath.string());
     for (const auto& filePath : m_cppInputFiles)
@@ -27,7 +25,7 @@ std::vector<std::string> CompillerArgs::clangArguments() const {
         arguments.emplace_back("-Xlinker ");
         arguments.emplace_back(linkerOption);
     }
-    arguments.emplace_back("--std=" + m_cppStandard);
+    arguments.emplace_back("-std=" + m_cppStandard);
 
     return arguments;
 }
