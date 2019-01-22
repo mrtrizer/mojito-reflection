@@ -153,8 +153,8 @@ std::string serializeCompillerArgs(const filesystem::path& compillerPath, const 
     
     ss << compillerPath.string() << ' ';
     
-    for (const auto& unrecognized : compillerArgs.unrecognizedArgs())
-        arguments.emplace_back(unrecognized);
+    for (const auto& arg : compillerArgs.unrecognizedArgs())
+        ss << arg << ' ';
     
     for (const auto& arg : compillerArgs.clangArguments())
         ss << arg << ' ';
