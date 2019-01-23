@@ -5,7 +5,7 @@
 #include <Function.hpp>
 #include <ReflectionMarkers.hpp>
 
-class REFLECT Test {
+class reflect Test {
 public:
     Test() = default;
     void a(int) {}
