@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8.8)
 
-set(PROJECT_NAME demo)
+set(PROJECT_NAME tests)
 project(${PROJECT_NAME})
 
 set(CMAKE_C_COMPILER "${CMAKE_HOME_DIRECTORY}/compile.sh")
@@ -8,7 +8,9 @@ set(CMAKE_CXX_COMPILER "${CMAKE_HOME_DIRECTORY}/compile.sh")
 set(CMAKE_XCODE_ATTRIBUTE_CC  "${CMAKE_C_COMPILER}")
 set(CMAKE_XCODE_ATTRIBUTE_CXX "${CMAKE_CXX_COMPILER}")
 
-add_executable(${PROJECT_NAME} main.cpp)
+file(GLOB PROJECT_SOURCES "${PROJECT_SOURCE_DIR}/src/*.hpp" "${PROJECT_SOURCE_DIR}/src/*.cpp")
+
+add_executable(${PROJECT_NAME} ${PROJECT_SOURCES})
 
 target_compile_options(${PROJECT_NAME} PRIVATE ${CMAKE_CXX_FLAGS} -std=c++17)
 
@@ -20,4 +22,5 @@ message(STATUS "Boost includes: ${Boost_INCLUDE_DIRS}")
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${Boost_INCLUDE_DIRS})
 target_include_directories(${PROJECT_NAME} PRIVATE ../reflection/src)
+target_include_directories(${PROJECT_NAME} PRIVATE catch)
 target_link_libraries(${PROJECT_NAME} ${Boost_LIBRARIES})

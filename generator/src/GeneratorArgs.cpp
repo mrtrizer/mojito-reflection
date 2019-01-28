@@ -43,4 +43,9 @@ GeneratorArgs::GeneratorArgs(const std::vector<std::string>& args) {
     else
         throw std::runtime_error("Reflection output is not defined");
     
+    if (vm.count(reflectionName) == 1)
+        m_reflectionName = vm[reflectionName].as<std::string>();
+    else
+        throw std::runtime_error("Reflection name is not defined");
+    
 }

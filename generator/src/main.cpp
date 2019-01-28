@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <sstream>
 #include <unordered_set>
+#include <regex>
 
 #include <clang/Frontend/FrontendActions.h>
 #include <llvm/ADT/StringRef.h>
@@ -94,11 +95,15 @@ CompillerArgs parseCompillerArgs(const boost::filesystem::path& compillerPath, c
         DEFINE,
         OUTPUT,
         XLINKER_OPTION,
-        STANDARD
+        STANDARD,
+        SKIP_ARG
     } state = UNKNOWN;
     
     for (const auto& arg : arguments) {
-        if (state == UNKNOWN && arg.find("-I") == 0) {
+        if (state == UNKNOWN && (arg == "-MT" || arg == "-MF")) {
+            state = SKIP_ARG;
+            compillerArgs.addUnrecognizedArg(arg);
+        } else if (state == UNKNOWN && arg.find("-I") == 0) {
             state = arg.size() > 2 ? compillerArgs.addIncludePath(arg.substr(2)), UNKNOWN : INCLUDE_PATH;
         } else if (state == UNKNOWN && arg.find("-D") == 0) {
             if (arg.size() > 2) {
@@ -118,10 +123,12 @@ CompillerArgs parseCompillerArgs(const boost::filesystem::path& compillerPath, c
             state = OUTPUT;
         } else if (state == UNKNOWN && arg.find("-Xlinker") == 0) {
             state = XLINKER_OPTION;
-        } else if (state == UNKNOWN && arg.find(".cpp") != std::string::npos) {
+        } else if (state == UNKNOWN && std::regex_match(arg, std::regex(".*?\\.cpp"))) {
             compillerArgs.addCppInputFile(arg);
-        } else if (state == UNKNOWN && arg.find(".o") != std::string::npos) {
+            std::cout << "CPP: " << arg << std::endl;
+        } else if (state == UNKNOWN && std::regex_match(arg, std::regex(".*?\\.o"))) {
             compillerArgs.addObjInputFile(arg);
+            std::cout << "OBJ: " << arg << std::endl;
         } else if (state == INCLUDE_PATH) {
             compillerArgs.addIncludePath(arg);
             state = UNKNOWN;
@@ -138,6 +145,10 @@ CompillerArgs parseCompillerArgs(const boost::filesystem::path& compillerPath, c
         } else if (state == STANDARD) {
             compillerArgs.setCppStandard(arg);
             state = UNKNOWN;
+        } else if (state == SKIP_ARG) {
+            std::cout << "Skipped: " << arg << std::endl;
+            compillerArgs.addUnrecognizedArg(arg);
+            state = UNKNOWN;
         } else {
             compillerArgs.addUnrecognizedArg(arg);
         }
@@ -148,8 +159,6 @@ CompillerArgs parseCompillerArgs(const boost::filesystem::path& compillerPath, c
 
 std::string serializeCompillerArgs(const filesystem::path& compillerPath, const CompillerArgs& compillerArgs) {
     std::stringstream ss;
-    
-    auto arguments = compillerArgs.clangArguments();
     
     ss << compillerPath.string() << ' ';
     
@@ -193,6 +202,7 @@ int main(int argc, const char *argv[])
     auto compillerArgs = parseCompillerArgs(generatorArgs.compillerPath(), generatorArgs.unrecognized());
 
     auto reflectionDBPath = generatorArgs.reflectionOutPath();
+    reflectionDBPath.append(generatorArgs.reflectionName());
     reflectionDBPath.append("ReflectionDB.json");
     auto reflectionDB = PersistentReflectionDB(reflectionDBPath);
 
@@ -210,16 +220,18 @@ int main(int argc, const char *argv[])
 
         MatchFinder finder;
         auto methodMatcher = cxxRecordDecl(isClass(), isDefinition()).bind("classes");
-        ClassParser classParser([&generatedCppFiles](const TypeReflection& typeReflection,
+        ClassParser classParser([&generatedCppFiles, &generatorArgs](const TypeReflection& typeReflection,
                                                     const std::string& fileName,
                                                     const std::string& className)
         {
             auto originalFilePath = filesystem::absolute(fileName).normalize();
-            filesystem::path newFilePath;
+            std::cout << "originalFilePath " << originalFilePath << std::endl;
+            filesystem::path newFilePath = generatorArgs.reflectionOutPath();
+            newFilePath.append(generatorArgs.reflectionName());
             newFilePath.append(originalFilePath.parent_path().string());
             newFilePath.append(originalFilePath.stem().string() + "_r" + originalFilePath.extension().string());
             newFilePath.normalize();
-            
+
             auto iter = generatedCppFiles.find(newFilePath.string());
             if (iter == generatedCppFiles.end()) {
                 auto reflectionUnitName = "register_" + originalFilePath.stem().string();
@@ -233,15 +245,31 @@ int main(int argc, const char *argv[])
 
         tool.run(newFrontendActionFactory(&finder).get());
         
-        std::vector<filesystem::path> generatedCppFilePaths;
+        // Initially injected cpp files are the same as original ones
+        std::vector<filesystem::path> injectedCppFilePaths;
+        std::transform(
+            compillerArgs.cppInputFiles().begin(),
+            compillerArgs.cppInputFiles().end(),
+            std::back_inserter(injectedCppFilePaths),
+            [] (const auto& input) {
+                auto output = filesystem::current_path();
+                output.append(input.string());
+                output.normalize();
+                return output;
+            });
 
+        // Replace files with reflection with generated files
         for (auto cppFile : generatedCppFiles) {
+            auto found = std::find(injectedCppFilePaths.begin(), injectedCppFilePaths.end(), cppFile.second.originalPath);
+            assert(found != injectedCppFilePaths.end());
+            *found = cppFile.first;
+            std::cout << "generated " << filesystem::path(cppFile.first).parent_path() << std::endl;
+            filesystem::create_directories(filesystem::path(cppFile.first).parent_path());
             writeTextFile(cppFile.first, generateWrapperCpp(cppFile.second));
-            generatedCppFilePaths.emplace_back(cppFile.first);
             reflectionDB.addReflectedFile(cppFile.second.originalPath, cppFile.first, cppFile.second.name);
         }
         
-        compillerArgs.setCppInputFiles(generatedCppFilePaths);
+        compillerArgs.setCppInputFiles(injectedCppFilePaths);
         
         reflectionDB.save();
     }
@@ -250,9 +278,10 @@ int main(int argc, const char *argv[])
         std::cout << "Linking" << std::endl;
         auto reflectionCppData = generateReflectionCpp(reflectionDB);
         auto reflectionCppPath = generatorArgs.reflectionOutPath();
+        reflectionCppPath.append(generatorArgs.reflectionName());
         reflectionCppPath.append("Reflection.cpp");
         compillerArgs.addCppInputFile(reflectionCppPath);
-        filesystem::create_directories(generatorArgs.reflectionOutPath());
+        filesystem::create_directories(reflectionCppPath.parent_path());
         writeTextFile(reflectionCppPath, reflectionCppData);
     }
     

@@ -11,6 +11,7 @@ public:
     const boost::filesystem::path& compillerPath() const noexcept { return m_compillerPath; }
     const boost::filesystem::path& reflectionIncludesPath() const noexcept { return m_reflectionIncludesPath; }
     const boost::filesystem::path& reflectionOutPath() const noexcept { return m_reflectionOutPath; }
+    const std::string& reflectionName() const noexcept { return m_reflectionName; }
     
     const std::vector<std::string>& unrecognized() const noexcept { return m_unrecognized; }
     
@@ -18,5 +19,6 @@ private:
     boost::filesystem::path m_compillerPath;
     boost::filesystem::path m_reflectionIncludesPath;
     boost::filesystem::path m_reflectionOutPath;
+    std::string m_reflectionName;
     std::vector<std::string> m_unrecognized;
 };
