@@ -7,6 +7,7 @@
 #include <sstream>
 #include <unordered_set>
 #include <regex>
+#include <csignal>
 
 #include <clang/Frontend/FrontendActions.h>
 #include <llvm/ADT/StringRef.h>
@@ -33,18 +34,24 @@ using namespace clang::ast_matchers;
 
 int runClang(const std::string& command)
 {
-    std::cout << command << std::endl;
+    std::cout << "Running clang: " << command << std::endl;
     
-    process::ipstream pipe_stream;
-    process::child c(command, process::std_out > pipe_stream);
+    try {
+        process::ipstream pipe_stream;
+        process::child c(command, process::std_out > pipe_stream);
 
-    std::string line;
+        std::string line;
 
-    while (pipe_stream && std::getline(pipe_stream, line) && !line.empty())
-        std::cout << line << std::endl;
+        while (pipe_stream && std::getline(pipe_stream, line) && !line.empty())
+            std::cout << line << std::endl;
 
-    c.wait();
-    return c.exit_code();
+        c.wait();
+        return c.exit_code();
+    } catch (const std::exception& e) {
+        std::cout << "Can't run clang with command: " << command << std::endl;
+        std::cout << e.what() << std::endl;
+        return 1;
+    }
 }
 
 struct ReflectionUnit {
@@ -130,16 +137,20 @@ CompillerArgs parseCompillerArgs(const boost::filesystem::path& compillerPath, c
             compillerArgs.addObjInputFile(arg);
             std::cout << "OBJ: " << arg << std::endl;
         } else if (state == INCLUDE_PATH) {
+            std::cout << "INCLUDE_PATH: " << arg << std::endl;
             compillerArgs.addIncludePath(arg);
             state = UNKNOWN;
         } else if (state == DEFINE) {
             auto split = splitArgument(arg);
+            std::cout << "DEFINE: " << arg << std::endl;
             compillerArgs.addDefine(std::get<0>(split), std::get<1>(split));
             state = UNKNOWN;
         } else if (state == OUTPUT) {
+            std::cout << "OUTPUT: " << arg << std::endl;
             compillerArgs.setOutput(arg);
             state = UNKNOWN;
         } else if (state == XLINKER_OPTION) {
+            std::cout << "XLINKER_OPTION: " << arg << std::endl;
             compillerArgs.addLinkerOption(arg);
             state = UNKNOWN;
         } else if (state == STANDARD) {
@@ -150,6 +161,7 @@ CompillerArgs parseCompillerArgs(const boost::filesystem::path& compillerPath, c
             compillerArgs.addUnrecognizedArg(arg);
             state = UNKNOWN;
         } else {
+            std::cout << "UNRECOGNIZED: " << arg << std::endl;
             compillerArgs.addUnrecognizedArg(arg);
         }
     }
@@ -197,6 +209,8 @@ std::string generateReflectionCpp(const PersistentReflectionDB& reflectionDB) {
 
 int main(int argc, const char *argv[])
 {
+
+//    raise(SIGSTOP);
     GeneratorArgs generatorArgs(std::vector<std::string>{argv + 1, argv + argc});
     
     auto compillerArgs = parseCompillerArgs(generatorArgs.compillerPath(), generatorArgs.unrecognized());
@@ -252,7 +266,7 @@ int main(int argc, const char *argv[])
             compillerArgs.cppInputFiles().end(),
             std::back_inserter(injectedCppFilePaths),
             [] (const auto& input) {
-                auto output = filesystem::current_path();
+                auto output = input.is_absolute() ? filesystem::path() : filesystem::current_path();
                 output.append(input.string());
                 output.normalize();
                 return output;

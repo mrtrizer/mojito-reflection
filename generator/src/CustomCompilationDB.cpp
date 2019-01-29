@@ -11,41 +11,46 @@
 static std::vector<boost::filesystem::path> getClangIncludeDirs(const boost::filesystem::path& compillerPath) {
     using namespace boost;
 
-    process::ipstream pipe_stream;
-    
-    std::string command = compillerPath.string() + " -v";
-    
-    process::child c(command, process::std_err > pipe_stream);
-
     std::vector<boost::filesystem::path> includeDirs;
 
-    std::string clangInstallDir;
-    std::string version;
+    try {
+        process::ipstream pipe_stream;
+        
+        std::string command = compillerPath.string() + " -v";
+        
+        process::child c(command, process::std_err > pipe_stream);
 
-    std::string line;
-    while (!pipe_stream.eof() && std::getline(pipe_stream, line) && !line.empty()) {
-        trim(line);
-        
-        std::cmatch m;
-        
-        std::regex re("version ([0-9]*?\\.[0-9]*?\\.[0-9]*)");
-        
-        if (std::regex_search(line.c_str(), m, re))
-            version = m[1];
+        std::string clangInstallDir;
+        std::string version;
+
+        std::string line;
+        while (!pipe_stream.eof() && std::getline(pipe_stream, line) && !line.empty()) {
+            trim(line);
             
-        const char installedDirMarker[] = "InstalledDir: ";
-        if (line.find(installedDirMarker) == 0)
-            clangInstallDir = line.substr(sizeof(installedDirMarker) / sizeof(installedDirMarker[0]) - 1);
-    }
-    
-    if (version.empty())
-        throw std::runtime_error("Can't get clang version by path " + compillerPath.string());
-    
-    if (clangInstallDir.empty())
-        throw std::runtime_error("Can't access clang by path " + compillerPath.string());
+            std::cmatch m;
+            
+            std::regex re("version ([0-9]*?\\.[0-9]*?\\.[0-9]*)");
+            
+            if (std::regex_search(line.c_str(), m, re))
+                version = m[1];
+            
+            const char installedDirMarker[] = "InstalledDir: ";
+            if (line.find(installedDirMarker) == 0)
+                clangInstallDir = line.substr(sizeof(installedDirMarker) / sizeof(installedDirMarker[0]) - 1);
+        }
+        
+        if (version.empty())
+            throw std::runtime_error("Can't get clang version by path " + compillerPath.string());
+        
+        if (clangInstallDir.empty())
+            throw std::runtime_error("Can't access clang by path " + compillerPath.string());
 
-    includeDirs.emplace_back(clangInstallDir + "/../include/c++/v1").normalize();
-    includeDirs.emplace_back(clangInstallDir + "/../lib/clang/" + version + "/include").normalize();
+        includeDirs.emplace_back(clangInstallDir + "/../include/c++/v1").normalize();
+        includeDirs.emplace_back(clangInstallDir + "/../lib/clang/" + version + "/include").normalize();
+    } catch (const std::exception& e) {
+        std::cout << "Can't read installation dir and includes for compiller: " << compillerPath << std::endl;
+        throw;
+    }
 
     return includeDirs;
 }

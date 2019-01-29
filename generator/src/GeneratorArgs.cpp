@@ -1,9 +1,12 @@
 #include "GeneratorArgs.hpp"
 
+#include <iostream>
 #include <boost/program_options.hpp>
+#include <boost/process.hpp>
 
 GeneratorArgs::GeneratorArgs(const std::vector<std::string>& args) {
     using namespace boost::program_options;
+    using namespace boost;
 
     const char* compiller = "compiller";
     const char* reflectionIncludes = "reflection-includes";
@@ -17,21 +20,26 @@ GeneratorArgs::GeneratorArgs(const std::vector<std::string>& args) {
       (reflectionName, value<std::string>())
       (reflectionOut, value<std::string>());
 
+    variables_map vm;
     basic_command_line_parser parser{args};
     parser.options(desc).allow_unregistered().style(
       command_line_style::default_style |
       command_line_style::allow_slash_for_short);
-    parsed_options parsed_options = parser.run();
+    try {
+        parsed_options parsed_options = parser.run();
+        store(parsed_options, vm);
+        m_unrecognized = collect_unrecognized(parsed_options.options, include_positional);
+    } catch (const std::exception& e) {
+        std::cout << "Failed to parse arguments" << std::endl;
+        throw;
+    }
 
-    variables_map vm;
-    store(parsed_options, vm);
-
-    m_unrecognized = collect_unrecognized(parsed_options.options, include_positional);
-    
-    if (vm.count(compiller) == 1)
-        m_compillerPath = vm[compiller].as<std::string>();
-    else
+    if (vm.count(compiller) == 1) {
+        m_compillerPath = process::search_path(vm[compiller].as<std::string>());
+        std::cout << "Detected compiller: " << m_compillerPath << std::endl;
+    } else {
         throw std::runtime_error("Compiller is not defined");
+    }
     
     if (vm.count(reflectionIncludes) == 1)
         m_reflectionIncludesPath = vm[reflectionIncludes].as<std::string>();

@@ -1,4 +1,2 @@
 #!/bin/sh
-pushd "$( dirname "${BASH_SOURCE[0]}")"
-../generator/compile.sh --reflection-name MojitoTests --reflection-includes ../reflection/src/ --compiller $CXX $@
-popd
+$( dirname "${BASH_SOURCE[0]}")/../generator/compile.sh --reflection-name MojitoTests --reflection-includes $( dirname "${BASH_SOURCE[0]}")/../reflection/src/ --compiller "c++" $@
