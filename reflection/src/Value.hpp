@@ -5,7 +5,7 @@
 #include "ValueRef.hpp"
 #include "TypeId.hpp"
 
-namespace flappy {
+namespace mojito {
 
 #define CHECK_MEMBER_FUNC(name, signature) \
     template <typename T> \
@@ -43,9 +43,9 @@ private:
 public:
     void* callCopyConstructor(const Value& other) {
         if (other.voidPointer() == nullptr)
-            throw FlappyException("Source value is not initialized");
+            throw MojitoException("Source value is not initialized");
         if (other.m_copyObject == nullptr)
-            throw FlappyException("Value doesn't have a copy constructor");
+            throw MojitoException("Value doesn't have a copy constructor");
         return other.m_copyObject(other.voidPointer());
     }
 
@@ -55,22 +55,22 @@ public:
     
     Value& operator=(const Value& other) {
         if (other.voidPointer() == nullptr)
-            throw FlappyException("Source value is not initialized");
+            throw MojitoException("Source value is not initialized");
         if (other.typeId() != typeId())
-            throw FlappyException("Assignment of values of different types is not supported yet");
+            throw MojitoException("Assignment of values of different types is not supported yet");
         if (other.m_copyAssignObject == nullptr)
-            throw FlappyException("Value doesn't have a copy assignment operator");
+            throw MojitoException("Value doesn't have a copy assignment operator");
         if (voidPointer() == nullptr)
-            throw FlappyException("Invalid value");
+            throw MojitoException("Invalid value");
         other.m_copyAssignObject(voidPointer(), other.voidPointer());
         return *this;
     }
     
     void* callMoveConstructor(const Value& other) {
         if (other.voidPointer() == nullptr)
-            throw FlappyException("Source value is not initialized");
+            throw MojitoException("Source value is not initialized");
         if (other.m_moveObject == nullptr)
-            throw FlappyException("Value doesn't have a move constructor");
+            throw MojitoException("Value doesn't have a move constructor");
         return other.m_moveObject(other.voidPointer());
     }
     
@@ -80,13 +80,13 @@ public:
     
     Value& operator=(Value&& other) {
         if (other.voidPointer() == nullptr)
-            throw FlappyException("Source value is not initialized");
+            throw MojitoException("Source value is not initialized");
         if (other.typeId() != typeId())
-            throw FlappyException("Assignment of values of different types is not supported yet");
+            throw MojitoException("Assignment of values of different types is not supported yet");
         if (other.m_moveAssignObject == nullptr)
-            throw FlappyException("Value doesn't have a move assignment operator");
+            throw MojitoException("Value doesn't have a move assignment operator");
         if (voidPointer() == nullptr)
-            throw FlappyException("Invalid value");
+            throw MojitoException("Invalid value");
         other.m_moveAssignObject(voidPointer(), other.voidPointer());
         return *this;
     }
@@ -121,13 +121,13 @@ public:
 
     ValueRef deref() {
         if (!typeId().isPointer())
-            throw FlappyException("Type is not a pointer");
+            throw MojitoException("Type is not a pointer");
         return ValueRef(*static_cast<void**>(voidPointer()), TypeId(typeId(), false, typeId().isConst()));
     }
     
     Value addressOf() {
         if (typeId().isPointer())
-            throw FlappyException("Address of pointer is not supported yet!");
+            throw MojitoException("Address of pointer is not supported yet!");
         return Value(new void*(const_cast<void*>(voidPointer())), TypeId(typeId(), true, typeId().isConst()));
     }
 
@@ -143,4 +143,4 @@ private:
     }
 };
 
-} // flappy
+} // mojito

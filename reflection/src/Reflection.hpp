@@ -4,7 +4,7 @@
 #include "Function.hpp"
 #include "Type.hpp"
 
-namespace flappy {
+namespace mojito {
 
 class Type;
 
@@ -27,32 +27,13 @@ public:
         return registerType<TypeT>(name, {}, args...);
     }
 
-    bool hasType(const std::string& name) const {
-        return m_typesMap.find(name) != m_typesMap.end();
-    }
+    bool hasType(const std::string& name) const;
 
-    // FIXME: Check order
-    bool hasType(TypeId typeId) const {
-        if (m_baseReflection != nullptr)
-            return m_baseReflection->hasType(typeId);
-        return hasType(m_typeNameMap.at(typeId));
-    }
+    bool hasType(TypeId typeId) const;
 
-    const Type& getType(const std::string& name) const {
-        auto iter = m_typesMap.find(name);
-        if (iter != m_typesMap.end())
-            return *iter->second;
-        if (m_baseReflection != nullptr)
-            return m_baseReflection->getType(name);
-        throw std::runtime_error(sstr("Type \"", name, "\" is not registered"));
-    }
+    const Type& getType(const std::string& name) const;
 
-    // FIXME: Check order
-    const Type& getType(TypeId typeId) const {
-        if (m_baseReflection != nullptr)
-            return m_baseReflection->getType(typeId);
-        return getType(m_typeNameMap.at(typeId));
-    }
+    const Type& getType(TypeId typeId) const;
 
     template <typename FunctionT>
     const Function& registerFunction(const std::string& name, FunctionT functionPtr) {
@@ -61,18 +42,9 @@ public:
         return *function;
     }
 
-    bool hasFunction(const std::string& name) const {
-        return m_functionMap.find(name) != m_functionMap.end();
-    }
+    bool hasFunction(const std::string& name) const;
 
-    const Function& getFunction(const std::string& name) const {
-        auto iter = m_functionMap.find(name);
-        if (iter != m_functionMap.end())
-            return *iter->second;
-        if (m_baseReflection != nullptr)
-            return m_baseReflection->getFunction(name);
-        throw std::runtime_error(sstr("Function \"", name, "\" is not registered."));
-    }
+    const Function& getFunction(const std::string& name) const;
 
 private:
     std::unordered_map<TypeId, std::string> m_typeNameMap;
@@ -83,4 +55,4 @@ private:
     std::shared_ptr<Reflection> m_baseReflection;
 };
 
-} // flappy
+} // mojito

@@ -5,7 +5,7 @@
 #include "Type.hpp"
 #include "Reflection.hpp"
 
-namespace flappy {
+namespace mojito {
 
 class BasicTypesReflection {
 public:
@@ -27,4 +27,4 @@ private:
     std::shared_ptr<Reflection> m_reflection;
 };
 
-} // flappy
+} // mojito

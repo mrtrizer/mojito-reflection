@@ -6,7 +6,7 @@
 #include "ValueRef.hpp"
 #include "TypeId.hpp"
 
-namespace flappy {
+namespace mojito {
 
 class Reflection;
 
@@ -52,7 +52,7 @@ public:
                 } (reflection);
                 return m_constructedValue->as<std::decay_t<T>>();
             } catch (const std::exception& e) {
-                throw std::runtime_error(sstr(e.what(),
+                throw MojitoException(concat(e.what(),
                             "\nNo convertion to type ", getTypeName(typeId),
                             " from type " + getTypeName(m_valueRef.typeId())));
             }
@@ -68,4 +68,4 @@ private:
     mutable std::optional<Value> m_constructedValue;
 };
 
-} // flappy
+} // mojito

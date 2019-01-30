@@ -2,7 +2,7 @@
 
 #include "Function.hpp"
 
-namespace flappy {
+namespace mojito {
 
 struct Constructor {
     Function onStackConstructor;
@@ -10,4 +10,4 @@ struct Constructor {
     Function inAddressConstructor;
 };
 
-} // flappy
+} // mojito

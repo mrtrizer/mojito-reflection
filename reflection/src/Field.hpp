@@ -7,7 +7,7 @@
 #include "Function.hpp"
 #include "Constructor.hpp"
 
-namespace flappy {
+namespace mojito {
 
 class Field {
 public:
@@ -32,4 +32,4 @@ private:
     std::function<Value(const ValueRef&)> m_getter;
 };
 
-} // flappy
+} // mojito

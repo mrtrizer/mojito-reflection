@@ -4,7 +4,7 @@
 #include "Type.hpp"
 #include "BasicTypesReflection.hpp"
 
-using namespace flappy;
+using namespace mojito;
 
 struct TestClass {
     TestClass(int c)

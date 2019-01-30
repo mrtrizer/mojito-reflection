@@ -8,7 +8,7 @@
 #include "Constructor.hpp"
 #include "Field.hpp"
 
-namespace flappy {
+namespace mojito {
 
 // FIXME: Rename "method" to "function" (as in C++ specification)
 // TODO: Introduce TypeBuilder to get rid of passing type to some member registration functions
@@ -89,8 +89,8 @@ private:
                      [&anyArgs...] (const auto& constructor) { return constructor.onStackConstructor.template fitArgs<ArgT...>(anyArgs ...);});
         if (iter != m_constructors.end())
             return *iter;
-        throw FlappyException("Can't construct");
+        throw MojitoException("Can't construct");
     }
 };
 
-} // flappy
+} // mojito

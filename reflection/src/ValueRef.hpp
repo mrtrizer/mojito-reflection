@@ -2,7 +2,7 @@
 
 #include "TypeId.hpp"
 
-namespace flappy {
+namespace mojito {
 
 class Value;
 
@@ -39,7 +39,7 @@ public:
     T& as() const {
         auto typeId = getTypeId<T>();
         if (typeId != m_typeId && !(typeId.isPointer() && m_typeId.isPointer()))
-            throw std::runtime_error(sstr(
+            throw MojitoException(concat(
                     "No trivial conversion from ", getTypeName(m_typeId), " to ", getTypeName(typeId)));
         return *static_cast<std::remove_reference_t<T>*>(const_cast<void*>(m_valuePtr));
     }
@@ -55,4 +55,4 @@ private:
     TypeId m_typeId;
 };
 
-} // flappy
+} // mojito

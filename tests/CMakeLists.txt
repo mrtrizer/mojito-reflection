@@ -21,6 +21,9 @@ message(STATUS "Boost libs: ${Boost_LIBRARIES}")
 message(STATUS "Boost includes: ${Boost_INCLUDE_DIRS}")
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${Boost_INCLUDE_DIRS})
-target_include_directories(${PROJECT_NAME} PRIVATE ../reflection/src)
 target_include_directories(${PROJECT_NAME} PRIVATE catch)
 target_link_libraries(${PROJECT_NAME} ${Boost_LIBRARIES})
+
+# Link reflection
+add_subdirectory("../reflection" "MojitoReflection/")
+target_link_libraries(${PROJECT_NAME} MojitoReflection)

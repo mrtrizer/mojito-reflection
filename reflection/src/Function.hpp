@@ -6,7 +6,7 @@
 #include "Value.hpp"
 #include "AnyArg.hpp"
 
-namespace flappy {
+namespace mojito {
 
 class Reflection;
 
@@ -68,7 +68,7 @@ public:
     Value operator()(ArgT&& ... anyArgs) const {
         auto totalArgsNum = m_argumentTypeIds.size() + (m_classTypeId.isValid() ? 1 : 0);
         if (sizeof...(ArgT) != totalArgsNum)
-            throw std::runtime_error(sstr("Wrong number of arguments. Expected: ", totalArgsNum, " Received: ", sizeof...(ArgT)));
+            throw MojitoException(concat("Wrong number of arguments. Expected: ", totalArgsNum, " Received: ", sizeof...(ArgT)));
         return m_function(std::vector<AnyArg>{ AnyArg(std::forward<ArgT>(anyArgs)) ...});
     }
 
@@ -115,4 +115,4 @@ private:
     }
 };
 
-} // flappy
+} // mojito

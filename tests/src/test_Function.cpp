@@ -5,7 +5,7 @@
 #include "Type.hpp"
 #include "BasicTypesReflection.hpp"
 
-using namespace flappy;
+using namespace mojito;
 
 // Test functions
 

@@ -6,11 +6,13 @@
 #include <functional>
 #include <unordered_map>
 
-#include <Utility.hpp>
+#include "Utility.hpp"
 
+#ifndef NDEBUG
 #define DEBUG_TYPE_NAMES
+#endif
 
-namespace flappy {
+namespace mojito {
 
 class TypeId {
     friend struct std::hash<TypeId>; // To calculate hash
@@ -99,12 +101,12 @@ inline std::string getTypeName(TypeId id) noexcept {
 #endif
 }
 
-} // flappy
+} // mojito
 
 namespace std {
 template <>
-struct hash <flappy::TypeId> {
-    size_t operator()(const flappy::TypeId& typeId) const noexcept {
+struct hash <mojito::TypeId> {
+    size_t operator()(const mojito::TypeId& typeId) const noexcept {
         return static_cast<size_t>(typeId.m_bitset);
     }
 };
