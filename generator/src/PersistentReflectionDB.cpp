@@ -21,6 +21,7 @@ PersistentReflectionDB::PersistentReflectionDB(const boost::filesystem::path& re
             auto reflectedFileData = value.second;
             ReflectedFile reflectedFile;
             reflectedFile.cppFilePath = reflectedFileData.get_child(cppFilePathKey).get_value<std::string>();
+            reflectedFile.reflectedCppFilePath = reflectedFileData.get_child(reflectedCppFilePathKey).get_value<std::string>();
             reflectedFile.outFilePath = reflectedFileData.get_child(outFilePathKey).get_value<std::string>();
             reflectedFile.functionName = reflectedFileData.get_child(functionNameKey).get_value<std::string>();
             m_reflectedFiles.emplace_back(reflectedFile);
@@ -28,16 +29,16 @@ PersistentReflectionDB::PersistentReflectionDB(const boost::filesystem::path& re
     }
 }
 
-void PersistentReflectionDB::addReflectedFile(const FilePath& cppFilePath, const FilePath& reflectedCppFilePath, const std::string& funcName) {
+void PersistentReflectionDB::addReflectedFile(const ReflectedFile& reflectedFile)
+{
     auto iter = std::find_if(
         m_reflectedFiles.begin(),
         m_reflectedFiles.end(),
-        [&cppFilePath](const auto& item) { return item.cppFilePath == cppFilePath; });
-    auto reflectedFile = [&]()-> ReflectedFile { return {cppFilePath, reflectedCppFilePath, "", funcName}; };
+        [&reflectedFile](const auto& item) { return item.cppFilePath == reflectedFile.cppFilePath; });
     if (iter == m_reflectedFiles.end())
-        m_reflectedFiles.emplace_back(reflectedFile());
+        m_reflectedFiles.emplace_back(reflectedFile);
     else
-        *iter = reflectedFile();
+        *iter = reflectedFile;
 }
 
 void PersistentReflectionDB::save() {
@@ -51,6 +52,7 @@ void PersistentReflectionDB::save() {
     for (const auto& reflectedFile : m_reflectedFiles) {
         ptree reflectedFileData;
         reflectedFileData.add(cppFilePathKey, reflectedFile.cppFilePath.string());
+        reflectedFileData.add(reflectedCppFilePathKey, reflectedFile.reflectedCppFilePath.string());
         reflectedFileData.add(outFilePathKey, reflectedFile.outFilePath.string());
         reflectedFileData.add(functionNameKey, reflectedFile.functionName);
         subtree.push_back(std::make_pair("", reflectedFileData));

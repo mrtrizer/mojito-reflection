@@ -13,9 +13,9 @@ public:
     void c(int) {}
 };
 
-extern bool generateReflection(flappy::Reflection&);
+extern bool generateReflection(mojito::Reflection&);
 
-using namespace flappy;
+using namespace mojito;
 
 int main() {
     auto reflection = std::make_shared<Reflection>();

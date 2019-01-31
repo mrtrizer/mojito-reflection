@@ -1,12 +1,12 @@
 cmake_minimum_required(VERSION 2.8.8)
 
+set(CMAKE_C_COMPILER "${CMAKE_HOME_DIRECTORY}/compile_cc.sh")
+set(CMAKE_CXX_COMPILER "${CMAKE_HOME_DIRECTORY}/compile_c++.sh")
+set(CMAKE_XCODE_ATTRIBUTE_CC "${CMAKE_C_COMPILER}")
+set(CMAKE_XCODE_ATTRIBUTE_CXX "${CMAKE_CXX_COMPILER}")
+
 set(PROJECT_NAME demo)
 project(${PROJECT_NAME})
-
-set(CMAKE_C_COMPILER "${CMAKE_HOME_DIRECTORY}/compile.sh")
-set(CMAKE_CXX_COMPILER "${CMAKE_HOME_DIRECTORY}/compile.sh")
-set(CMAKE_XCODE_ATTRIBUTE_CC  "${CMAKE_C_COMPILER}")
-set(CMAKE_XCODE_ATTRIBUTE_CXX "${CMAKE_CXX_COMPILER}")
 
 add_executable(${PROJECT_NAME} main.cpp)
 
@@ -19,5 +19,8 @@ message(STATUS "Boost libs: ${Boost_LIBRARIES}")
 message(STATUS "Boost includes: ${Boost_INCLUDE_DIRS}")
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${Boost_INCLUDE_DIRS})
-target_include_directories(${PROJECT_NAME} PRIVATE ../reflection/src)
 target_link_libraries(${PROJECT_NAME} ${Boost_LIBRARIES})
+
+# Link reflection
+add_subdirectory("../reflection" "MojitoReflection/")
+target_link_libraries(${PROJECT_NAME} MojitoReflection)

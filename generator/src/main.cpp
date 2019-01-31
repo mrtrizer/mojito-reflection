@@ -67,9 +67,9 @@ std::string generateWrapperCpp(ReflectionUnit reflectionUnit) {
     ss << "#include <Type.hpp>" << std::endl;
     ss << "#include <BasicTypesReflection.hpp>" << std::endl;
     ss << std::endl;
-    ss << "using namespace flappy;" << std::endl;
+    ss << "using namespace mojito;" << std::endl;
     ss << std::endl;
-    ss << "void " << reflectionUnit.name << "(flappy::Reflection& reflection) {" << std::endl;
+    ss << "void " << reflectionUnit.name << "(mojito::Reflection& reflection) {" << std::endl;
     for (const auto& type : reflectionUnit.reflectedTypes) {
         ss << "  reflection.registerType<" << type.typeName << ">(\"" << type.typeName  << "\")" << std::endl;
         ss << type.methods.methodBodies << ";" << std::endl;
@@ -183,21 +183,25 @@ std::string serializeCompillerArgs(const filesystem::path& compillerPath, const 
     return ss.str();
 }
 
-std::string generateReflectionCpp(const PersistentReflectionDB& reflectionDB) {
+std::string generateReflectionCpp(const PersistentReflectionDB& reflectionDB, const std::unordered_set<std::string>& outFiles) {
     std::stringstream ss;
     
-    ss << "namespace flappy { class Reflection; }" << std::endl;
-    ss << "using namespace flappy;" << std::endl;
+    auto isPresented = [&outFiles](const PersistentReflectionDB::ReflectedFile& file){
+        return filesystem::exists(file.cppFilePath) && outFiles.find(file.outFilePath.string()) != outFiles.end();
+    };
+    
+    ss << "namespace mojito { class Reflection; }" << std::endl;
+    ss << "using namespace mojito;" << std::endl;
     ss << std::endl;
     for (auto file : reflectionDB.reflectedFiles()) {
-        if (filesystem::exists(file.cppFilePath))
-            ss << "extern void " << file.functionName << "(flappy::Reflection&);" << std::endl;
+        if (isPresented(file))
+            ss << "extern void " << file.functionName << "(mojito::Reflection&);" << std::endl;
     }
     ss << std::endl;
-    ss << "bool generateReflection(flappy::Reflection& reflectionDB) {" << std::endl;
+    ss << "bool generateReflection(Reflection& reflectionDB) {" << std::endl;
     
     for (auto file : reflectionDB.reflectedFiles()) {
-        if (filesystem::exists(file.cppFilePath))
+        if (isPresented(file))
             ss << "    " << file.functionName << "(reflectionDB);" << std::endl;
     }
     
@@ -205,6 +209,17 @@ std::string generateReflectionCpp(const PersistentReflectionDB& reflectionDB) {
     ss << "}" << std::endl;
     
     return ss.str();
+}
+
+std::unordered_set<std::string> listOfObjects(const GeneratorArgs&, const CompillerArgs& compillerArgs) {
+    if (compillerArgs.objInputFiles().empty())
+        return {"unknown"};
+    std::unordered_set<std::string> inputObjects;
+    std::transform(compillerArgs.objInputFiles().begin(),
+        compillerArgs.objInputFiles().end(),
+        std::inserter(inputObjects, inputObjects.end()),
+        [](const auto& input){ return input.string(); });
+    return inputObjects;
 }
 
 int main(int argc, const char *argv[])
@@ -280,7 +295,12 @@ int main(int argc, const char *argv[])
             std::cout << "generated " << filesystem::path(cppFile.first).parent_path() << std::endl;
             filesystem::create_directories(filesystem::path(cppFile.first).parent_path());
             writeTextFile(cppFile.first, generateWrapperCpp(cppFile.second));
-            reflectionDB.addReflectedFile(cppFile.second.originalPath, cppFile.first, cppFile.second.name);
+            reflectionDB.addReflectedFile({
+                .cppFilePath = cppFile.second.originalPath,
+                .reflectedCppFilePath = cppFile.first,
+                .outFilePath = compillerArgs.output(),
+                .functionName = cppFile.second.name
+            });
         }
         
         compillerArgs.setCppInputFiles(injectedCppFilePaths);
@@ -290,21 +310,18 @@ int main(int argc, const char *argv[])
     
     if (compillerArgs.output().extension() != ".o") {
         std::cout << "Linking" << std::endl;
-        auto reflectionCppData = generateReflectionCpp(reflectionDB);
+        auto reflectionCppData = generateReflectionCpp(reflectionDB, listOfObjects(generatorArgs, compillerArgs));
         auto reflectionCppPath = generatorArgs.reflectionOutPath();
         reflectionCppPath.append(generatorArgs.reflectionName());
         reflectionCppPath.append("Reflection.cpp");
+        writeTextFile(reflectionCppPath, reflectionCppData);
         compillerArgs.addCppInputFile(reflectionCppPath);
         filesystem::create_directories(reflectionCppPath.parent_path());
-        writeTextFile(reflectionCppPath, reflectionCppData);
     }
     
     // Include path is needed for linking too, because I adding Reflection.cpp to link command.
     {
-        auto reflectionIncludesPath = generatorArgs.reflectionIncludesPath();
-        compillerArgs.addIncludePath(reflectionIncludesPath);
-        reflectionIncludesPath.append("/../../Utility/src");
-        compillerArgs.addIncludePath(reflectionIncludesPath);
+        compillerArgs.addIncludePath(generatorArgs.reflectionIncludesPath());
     }
 
     return runClang(serializeCompillerArgs(generatorArgs.compillerPath(), compillerArgs));

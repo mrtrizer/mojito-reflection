@@ -19,7 +19,7 @@ public:
     
     using FilePath = boost::filesystem::path;
     
-    void addReflectedFile(const FilePath& cppFilePath, const FilePath& reflectedCppFilePath, const std::string& funcName);
+    void addReflectedFile(const ReflectedFile& reflectedFile);
     
     void save();
     
@@ -29,6 +29,7 @@ private:
     
     inline static const char* reflectedFilesKey = "reflected_files";
     inline static const char* cppFilePathKey = "cpp_file_path";
+    inline static const char* reflectedCppFilePathKey = "reflected_cpp_file_path";
     inline static const char* outFilePathKey = "out_file_path";
     inline static const char* functionNameKey = "function_name";
 };

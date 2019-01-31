@@ -58,10 +58,33 @@ static std::vector<boost::filesystem::path> getClangIncludeDirs(const boost::fil
 CustomCompilationDatabase::CustomCompilationDatabase(const boost::filesystem::path& compillerPath, const CompillerArgs& compillerArgs)
     : m_compillerArgs(compillerArgs)
     , m_compillerPath(compillerPath)
+    , m_includeDirs(getClangIncludeDirs(compillerPath))
 {}
 
 std::vector<clang::tooling::CompileCommand> CustomCompilationDatabase::getCompileCommands(llvm::StringRef filePath) const {
-    return getAllCompileCommands();
+    auto tmpCompillerArgs = m_compillerArgs;
+    tmpCompillerArgs.setCppInputFiles({ boost::filesystem::path(filePath) });
+
+    for (const auto& include : m_includeDirs)
+        tmpCompillerArgs.addIncludePath(include.string());
+    
+    std::vector<std::string> fullCommand {"c++"};
+    auto arguments = tmpCompillerArgs.clangArguments();
+    fullCommand.insert(fullCommand.end(), arguments.begin(), arguments.end());
+    std::cout << "Full command: ";
+    for (const auto& part : fullCommand)
+        std::cout << part << ' ';
+    std::cout << std::endl;
+    
+    std::vector<clang::tooling::CompileCommand> commands {
+        clang::tooling::CompileCommand {
+            boost::filesystem::current_path().string(),
+            filePath,
+            fullCommand,
+            ""}
+    };
+
+    return commands;
 }
 
 std::vector<std::string> CustomCompilationDatabase::getAllFiles() const {
@@ -76,23 +99,10 @@ std::vector<std::string> CustomCompilationDatabase::getAllFiles() const {
 
 std::vector<clang::tooling::CompileCommand> CustomCompilationDatabase::getAllCompileCommands() const {
     std::vector<clang::tooling::CompileCommand> commands;
-    auto arguments = m_compillerArgs.clangArguments();
-    arguments.insert(arguments.begin(), "c++");
-    auto includes = getClangIncludeDirs(m_compillerPath);
-    for (const auto& include : includes) {
-        arguments.push_back("-I");
-        arguments.push_back(include.string());
+    for (const auto& cpp : m_compillerArgs.cppInputFiles()) {
+        auto commandsForCpp = getCompileCommands(cpp.string());
+        commands.insert(commands.end(), commandsForCpp.begin(), commandsForCpp.end());
     }
-    //arguments.push_back("-I/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include/c++/v1");
-    for (const auto& arg : arguments)
-        std::cout << arg << ' ';
-    std::cout << std::endl;
-    for (const auto& cpp : m_compillerArgs.cppInputFiles())
-        commands.emplace_back(clang::tooling::CompileCommand {
-                                boost::filesystem::current_path().string(),
-                                cpp.string(),
-                                arguments,
-                                ""});
     return commands;
 }
 
