@@ -21,9 +21,10 @@
 
 #include "CustomCompilationDB.hpp"
 #include "ClassParser.hpp"
-#include "CompillerArgs.hpp"
+#include "CompilerArgs.hpp"
 #include "GeneratorArgs.hpp"
 #include "PersistentReflectionDB.hpp"
+#include "CompilerInfo.hpp"
 
 using namespace boost;
 using namespace std;
@@ -93,8 +94,8 @@ std::tuple<std::string, std::string> splitArgument(const std::string& sourceStr)
     return {sourceStr.substr(2, eq - 2), value};
 }
 
-CompillerArgs parseCompillerArgs(const boost::filesystem::path& compillerPath, const std::vector<std::string>& arguments) {
-    CompillerArgs compillerArgs;
+CompilerArgs parseCompillerArgs(const boost::filesystem::path& compillerPath, const std::vector<std::string>& arguments) {
+    CompilerArgs compillerArgs;
     
     enum {
         INCLUDE_PATH,
@@ -136,6 +137,9 @@ CompillerArgs parseCompillerArgs(const boost::filesystem::path& compillerPath, c
         } else if (state == UNKNOWN && std::regex_match(arg, std::regex(".*?\\.o"))) {
             compillerArgs.addObjInputFile(arg);
             std::cout << "OBJ: " << arg << std::endl;
+       } else if (state == UNKNOWN && std::regex_match(arg, std::regex(".*?\\.a"))) {
+            compillerArgs.addLibInputFile(arg);
+            std::cout << "LIB: " << arg << std::endl;
         } else if (state == INCLUDE_PATH) {
             std::cout << "INCLUDE_PATH: " << arg << std::endl;
             compillerArgs.addIncludePath(arg);
@@ -169,7 +173,7 @@ CompillerArgs parseCompillerArgs(const boost::filesystem::path& compillerPath, c
     return compillerArgs;
 }
 
-std::string serializeCompillerArgs(const filesystem::path& compillerPath, const CompillerArgs& compillerArgs) {
+std::string serializeCompillerArgs(const filesystem::path& compillerPath, const CompilerArgs& compillerArgs) {
     std::stringstream ss;
     
     ss << compillerPath.string() << ' ';
@@ -211,7 +215,7 @@ std::string generateReflectionCpp(const PersistentReflectionDB& reflectionDB, co
     return ss.str();
 }
 
-std::unordered_set<std::string> listOfObjects(const GeneratorArgs&, const CompillerArgs& compillerArgs) {
+std::unordered_set<std::string> listOfObjects(const GeneratorArgs&, const CompilerArgs& compillerArgs, const CompilerInfo& info) {
     if (compillerArgs.objInputFiles().empty())
         return {"unknown"};
     std::unordered_set<std::string> inputObjects;
@@ -235,10 +239,12 @@ int main(int argc, const char *argv[])
     reflectionDBPath.append("ReflectionDB.json");
     auto reflectionDB = PersistentReflectionDB(reflectionDBPath);
 
+    CompilerInfo compilerInfo(generatorArgs.compillerPath());
+
     if (!compillerArgs.cppInputFiles().empty()) {
         std::cout << "Building sources" << std::endl;
     
-        CustomCompilationDatabase compilationDatabase(generatorArgs.compillerPath(), compillerArgs);
+        CustomCompilationDatabase compilationDatabase(compilerInfo, compillerArgs);
 
         std::vector<std::string> cppFiles;
         std::transform(compillerArgs.cppInputFiles().begin(), compillerArgs.cppInputFiles().end(), std::back_inserter(cppFiles),
@@ -310,7 +316,7 @@ int main(int argc, const char *argv[])
     
     if (compillerArgs.output().extension() != ".o") {
         std::cout << "Linking" << std::endl;
-        auto reflectionCppData = generateReflectionCpp(reflectionDB, listOfObjects(generatorArgs, compillerArgs));
+        auto reflectionCppData = generateReflectionCpp(reflectionDB, listOfObjects(generatorArgs, compillerArgs, compilerInfo));
         auto reflectionCppPath = generatorArgs.reflectionOutPath();
         reflectionCppPath.append(generatorArgs.reflectionName());
         reflectionCppPath.append("Reflection.cpp");

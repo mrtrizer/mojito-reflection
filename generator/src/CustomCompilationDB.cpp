@@ -3,69 +3,22 @@
 #include <iostream>
 #include <regex>
 
-#include "CompillerArgs.hpp"
+#include "CompilerArgs.hpp"
+#include "CompilerInfo.hpp"
 
 #include <boost/process.hpp>
 #include <boost/algorithm/string.hpp>
 
-static std::vector<boost::filesystem::path> getClangIncludeDirs(const boost::filesystem::path& compillerPath) {
-    using namespace boost;
-
-    std::vector<boost::filesystem::path> includeDirs;
-
-    try {
-        process::ipstream pipe_stream;
-        
-        std::string command = compillerPath.string() + " -v";
-        
-        process::child c(command, process::std_err > pipe_stream);
-
-        std::string clangInstallDir;
-        std::string version;
-
-        std::string line;
-        while (!pipe_stream.eof() && std::getline(pipe_stream, line) && !line.empty()) {
-            trim(line);
-            
-            std::cmatch m;
-            
-            std::regex re("version ([0-9]*?\\.[0-9]*?\\.[0-9]*)");
-            
-            if (std::regex_search(line.c_str(), m, re))
-                version = m[1];
-            
-            const char installedDirMarker[] = "InstalledDir: ";
-            if (line.find(installedDirMarker) == 0)
-                clangInstallDir = line.substr(sizeof(installedDirMarker) / sizeof(installedDirMarker[0]) - 1);
-        }
-        
-        if (version.empty())
-            throw std::runtime_error("Can't get clang version by path " + compillerPath.string());
-        
-        if (clangInstallDir.empty())
-            throw std::runtime_error("Can't access clang by path " + compillerPath.string());
-
-        includeDirs.emplace_back(clangInstallDir + "/../include/c++/v1").normalize();
-        includeDirs.emplace_back(clangInstallDir + "/../lib/clang/" + version + "/include").normalize();
-    } catch (const std::exception& e) {
-        std::cout << "Can't read installation dir and includes for compiller: " << compillerPath << std::endl;
-        throw;
-    }
-
-    return includeDirs;
-}
-
-CustomCompilationDatabase::CustomCompilationDatabase(const boost::filesystem::path& compillerPath, const CompillerArgs& compillerArgs)
+CustomCompilationDatabase::CustomCompilationDatabase(const CompilerInfo& info, const CompilerArgs& compillerArgs)
     : m_compillerArgs(compillerArgs)
-    , m_compillerPath(compillerPath)
-    , m_includeDirs(getClangIncludeDirs(compillerPath))
+    , m_compilerInfo(info)
 {}
 
 std::vector<clang::tooling::CompileCommand> CustomCompilationDatabase::getCompileCommands(llvm::StringRef filePath) const {
     auto tmpCompillerArgs = m_compillerArgs;
     tmpCompillerArgs.setCppInputFiles({ boost::filesystem::path(filePath) });
 
-    for (const auto& include : m_includeDirs)
+    for (const auto& include : m_compilerInfo.includeDirs())
         tmpCompillerArgs.addIncludePath(include.string());
     
     std::vector<std::string> fullCommand {"c++"};

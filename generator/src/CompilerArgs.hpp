@@ -5,7 +5,7 @@
 #include <unordered_map>
 #include <boost/filesystem.hpp>
 
-class CompillerArgs {
+class CompilerArgs {
 public:
     using FilePathList = std::vector<boost::filesystem::path>;
 
@@ -16,7 +16,11 @@ public:
     const FilePathList& objInputFiles() const { return m_objInputFiles; }
     void setObjInputFiles(const FilePathList& objInputFiles) { m_objInputFiles = objInputFiles; }
     void addObjInputFile(const boost::filesystem::path& path);
-    
+
+    const FilePathList& libInputFiles() const { return m_libInputFiles; }
+    void setLibInputFiles(const FilePathList& libInputFiles) { m_libInputFiles = libInputFiles; }
+    void addLibInputFile(const boost::filesystem::path& path);
+
     void addIncludePath(const boost::filesystem::path& path);
     
     void addDefine(const std::string& define, const std::string& value) { m_defines.emplace(define, value); }
@@ -37,6 +41,7 @@ public:
 private:
     FilePathList m_objInputFiles;
     FilePathList m_cppInputFiles;
+    FilePathList m_libInputFiles;
     FilePathList m_includePathes;
     std::unordered_map<std::string, std::string> m_defines;
     boost::filesystem::path m_output = "unknown";

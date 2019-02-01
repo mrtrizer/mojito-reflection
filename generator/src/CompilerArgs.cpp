@@ -1,17 +1,21 @@
-#include "CompillerArgs.hpp"
+#include "CompilerArgs.hpp"
 
 #include <sstream>
 #include <iostream>
 
-void CompillerArgs::addCppInputFile(const boost::filesystem::path& path) {
+void CompilerArgs::addCppInputFile(const boost::filesystem::path& path) {
     m_cppInputFiles.emplace_back(boost::filesystem::canonical(path));
 }
 
-void CompillerArgs::addObjInputFile(const boost::filesystem::path& path) {
+void CompilerArgs::addObjInputFile(const boost::filesystem::path& path) {
     m_objInputFiles.emplace_back(boost::filesystem::canonical(path));
 }
 
-void CompillerArgs::addIncludePath(const boost::filesystem::path& path) {
+void CompilerArgs::addLibInputFile(const boost::filesystem::path& path) {
+    m_objInputFiles.emplace_back(boost::filesystem::canonical(path));
+}
+
+void CompilerArgs::addIncludePath(const boost::filesystem::path& path) {
     try {
         m_includePathes.emplace_back(boost::filesystem::canonical(path));
     } catch (const std::exception& e) {
@@ -19,17 +23,19 @@ void CompillerArgs::addIncludePath(const boost::filesystem::path& path) {
     }
 }
 
-void CompillerArgs::setOutput(const boost::filesystem::path& output) {
+void CompilerArgs::setOutput(const boost::filesystem::path& output) {
     m_output = boost::filesystem::absolute(output);
     m_output.normalize();
 }
 
-std::vector<std::string> CompillerArgs::clangArguments() const {
+std::vector<std::string> CompilerArgs::clangArguments() const {
     std::vector<std::string> arguments;
     
     for (const auto& filePath : m_objInputFiles)
         arguments.emplace_back(filePath.string());
     for (const auto& filePath : m_cppInputFiles)
+        arguments.emplace_back(filePath.string());
+    for (const auto& filePath : m_libInputFiles)
         arguments.emplace_back(filePath.string());
     for (const auto& filePath : m_includePathes) {
         arguments.emplace_back("-I");
