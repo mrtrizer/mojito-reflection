@@ -10,7 +10,7 @@
 
 class CustomCompilationDatabase : public clang::tooling::CompilationDatabase {
 public:
-    CustomCompilationDatabase(const CompilerInfo& compilerInfo, const CompilerArgs& compillerArgs);
+    CustomCompilationDatabase(const CompilerInfo& compilerInfo, const CompilerArgs& compilerArgs);
 
     std::vector<clang::tooling::CompileCommand> getCompileCommands(llvm::StringRef filePath) const override;
     
@@ -19,6 +19,6 @@ public:
     std::vector<clang::tooling::CompileCommand> getAllCompileCommands() const override;
     
 private:
-    CompilerArgs m_compillerArgs;
+    CompilerArgs m_compilerArgs;
     CompilerInfo m_compilerInfo;
 };

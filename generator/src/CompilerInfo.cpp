@@ -4,7 +4,6 @@
 #include <regex>
 
 #include <boost/process.hpp>
-#include <boost/algorithm/string.hpp>
 
 CompilerInfo::CompilerInfo(const boost::filesystem::path& compilerPath)
     : m_compilerPath(compilerPath)
@@ -20,18 +19,14 @@ CompilerInfo::CompilerInfo(const boost::filesystem::path& compilerPath)
 
         std::string line;
         while (!pipe_stream.eof() && std::getline(pipe_stream, line) && !line.empty()) {
-            trim(line);
             
             std::cmatch m;
             
-            std::regex re("version ([0-9]*?\\.[0-9]*?\\.[0-9]*)");
-            
-            if (std::regex_search(line.c_str(), m, re))
+            if (std::regex_search(line.c_str(), m, std::regex("version ([0-9]*?\\.[0-9]*?\\.[0-9]*)")))
                 m_version = m[1];
             
-            const char installedDirMarker[] = "InstalledDir: ";
-            if (line.find(installedDirMarker) == 0)
-                m_clangInstallDir = line.substr(sizeof(installedDirMarker) / sizeof(installedDirMarker[0]) - 1);
+            if (std::regex_search(line.c_str(), m, std::regex("InstalledDir: (.*)")))
+                m_clangInstallDir = m[1];
         }
         
         if (m_version.empty())
@@ -40,8 +35,23 @@ CompilerInfo::CompilerInfo(const boost::filesystem::path& compilerPath)
         if (m_clangInstallDir.empty())
             throw std::runtime_error("Can't access clang by path " + compilerPath.string());
 
-        m_includeDirs.emplace_back(m_clangInstallDir + "/../include/c++/v1").normalize();
-        m_includeDirs.emplace_back(m_clangInstallDir + "/../lib/clang/" + m_version + "/include").normalize();
+        try {
+            auto llvmIncludesDir = m_clangInstallDir;
+            llvmIncludesDir.append("/../include/c++/v1");
+            m_includeDirs.emplace_back(boost::filesystem::canonical(llvmIncludesDir));
+        } catch (const std::exception& e){
+            std::cout << "Can't find LLVM includes dir " << e.what();
+        }
+        
+        try {
+            auto clangIncludesDir = m_clangInstallDir;
+            clangIncludesDir.append("../lib/clang/");
+            clangIncludesDir.append(m_version);
+            clangIncludesDir.append("include");
+            m_includeDirs.emplace_back(boost::filesystem::canonical(clangIncludesDir));
+        } catch (const std::exception& e){
+            std::cout << "Can't find Clang includes dir " << e.what();
+        }
     } catch (const std::exception& e) {
         std::cout << "Can't read installation dir and includes for compiller: " << compilerPath << std::endl;
         throw;

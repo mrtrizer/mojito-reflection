@@ -18,7 +18,7 @@ public:
         return m_includeDirs;
     }
     
-    const std::string& clangInstallDir() const {
+    const boost::filesystem::path& clangInstallDir() const {
         return m_clangInstallDir;
     }
     
@@ -29,6 +29,6 @@ public:
 private:
     boost::filesystem::path m_compilerPath;
     std::vector<boost::filesystem::path> m_includeDirs;
-    std::string m_clangInstallDir;
+    boost::filesystem::path m_clangInstallDir;
     std::string m_version;
 };

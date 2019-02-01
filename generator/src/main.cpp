@@ -216,13 +216,25 @@ std::string generateReflectionCpp(const PersistentReflectionDB& reflectionDB, co
 }
 
 std::unordered_set<std::string> listOfObjects(const GeneratorArgs&, const CompilerArgs& compillerArgs, const CompilerInfo& info) {
-    if (compillerArgs.objInputFiles().empty())
+    if (compillerArgs.objInputFiles().empty() && compillerArgs.libInputFiles().empty())
         return {"unknown"};
     std::unordered_set<std::string> inputObjects;
-    std::transform(compillerArgs.objInputFiles().begin(),
-        compillerArgs.objInputFiles().end(),
-        std::inserter(inputObjects, inputObjects.end()),
-        [](const auto& input){ return input.string(); });
+    for (const auto& lib : compillerArgs.libInputFiles()) {
+        auto arPath = info.clangInstallDir();
+        arPath.append("ar");
+        process::ipstream pipe_stream;
+        process::child(arPath.string() + " -t " + lib.string(), process::std_out > pipe_stream);
+        
+        std::string line;
+        while (!pipe_stream.eof() && std::getline(pipe_stream, line) && !line.empty()) {
+            if (std::regex_match(line, std::regex(".*?\\.o"))) {
+                inputObjects.emplace(line);
+                std::cout << "Object from lib: " << line;
+            }
+        }
+    }
+    for (const auto& obj : compillerArgs.objInputFiles())
+        inputObjects.emplace(obj.string());
     return inputObjects;
 }
 
