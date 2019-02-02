@@ -325,6 +325,7 @@ int main(int argc, const char *argv[])
         }
         
         compillerArgs.setCppInputFiles(injectedCppFilePaths);
+        compillerArgs.addIncludePath(generatorArgs.reflectionIncludesPath());
         
         reflectionDB.save();
     }
@@ -338,11 +339,6 @@ int main(int argc, const char *argv[])
         writeTextFile(reflectionCppPath, reflectionCppData);
         compillerArgs.addCppInputFile(reflectionCppPath);
         filesystem::create_directories(reflectionCppPath.parent_path());
-    }
-    
-    // Include path is needed for linking too, because I adding Reflection.cpp to link command.
-    {
-        compillerArgs.addIncludePath(generatorArgs.reflectionIncludesPath());
     }
 
     return runClang(serializeCompillerArgs(generatorArgs.compillerPath(), compillerArgs));
