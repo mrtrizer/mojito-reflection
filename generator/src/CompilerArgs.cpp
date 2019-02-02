@@ -12,7 +12,7 @@ void CompilerArgs::addObjInputFile(const boost::filesystem::path& path) {
 }
 
 void CompilerArgs::addLibInputFile(const boost::filesystem::path& path) {
-    m_objInputFiles.emplace_back(boost::filesystem::canonical(path));
+    m_libInputFiles.emplace_back(boost::filesystem::canonical(path));
 }
 
 void CompilerArgs::addIncludePath(const boost::filesystem::path& path) {

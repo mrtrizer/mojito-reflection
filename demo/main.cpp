@@ -23,5 +23,8 @@ int main() {
     std::cout << "Method list:" << std::endl;
     for (auto method : reflection->getType("Test").functionMap())
         std::cout << method.first << std::endl;
+    std::cout << "Method list in static lib:" << std::endl;
+    for (auto method : reflection->getType("LibTest").functionMap())
+        std::cout << method.first << std::endl;
     return 0;
 }

@@ -191,7 +191,8 @@ std::string generateReflectionCpp(const PersistentReflectionDB& reflectionDB, co
     std::stringstream ss;
     
     auto isPresented = [&outFiles](const PersistentReflectionDB::ReflectedFile& file){
-        return filesystem::exists(file.cppFilePath) && outFiles.find(file.outFilePath.string()) != outFiles.end();
+        auto objName = file.outFilePath.filename().string();
+        return filesystem::exists(file.cppFilePath) && outFiles.find(objName) != outFiles.end();
     };
     
     ss << "namespace mojito { class Reflection; }" << std::endl;
@@ -223,18 +224,20 @@ std::unordered_set<std::string> listOfObjects(const GeneratorArgs&, const Compil
         auto arPath = info.clangInstallDir();
         arPath.append("ar");
         process::ipstream pipe_stream;
-        process::child(arPath.string() + " -t " + lib.string(), process::std_out > pipe_stream);
+        process::child process(arPath.string() + " -t " + lib.string(), process::std_out > pipe_stream);
+        
+        std::cout << "AR command: " << (arPath.string() + " -t " + lib.string()) << std::endl;
         
         std::string line;
-        while (!pipe_stream.eof() && std::getline(pipe_stream, line) && !line.empty()) {
+        while (process.running() && std::getline(pipe_stream, line) && !line.empty()) {
             if (std::regex_match(line, std::regex(".*?\\.o"))) {
                 inputObjects.emplace(line);
-                std::cout << "Object from lib: " << line;
+                std::cout << "Object from lib: " << line << std::endl;
             }
         }
     }
     for (const auto& obj : compillerArgs.objInputFiles())
-        inputObjects.emplace(obj.string());
+        inputObjects.emplace(obj.filename().string());
     return inputObjects;
 }
 

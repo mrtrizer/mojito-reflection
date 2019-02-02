@@ -12,15 +12,10 @@ add_executable(${PROJECT_NAME} main.cpp)
 
 target_compile_options(${PROJECT_NAME} PRIVATE ${CMAKE_CXX_FLAGS} -std=c++17)
 
-# Link Boost
-find_package(Boost REQUIRED COMPONENTS unit_test_framework)
-message(STATUS "Found Boost version: ${Boost_VERSION}")
-message(STATUS "Boost libs: ${Boost_LIBRARIES}")
-message(STATUS "Boost includes: ${Boost_INCLUDE_DIRS}")
-
-target_include_directories(${PROJECT_NAME} PRIVATE ${Boost_INCLUDE_DIRS})
-target_link_libraries(${PROJECT_NAME} ${Boost_LIBRARIES})
-
 # Link reflection
 add_subdirectory("../reflection" "MojitoReflection/")
-target_link_libraries(${PROJECT_NAME} MojitoReflection)
+target_link_libraries(${PROJECT_NAME} PRIVATE MojitoReflection)
+
+# Link demo library
+add_subdirectory("demo_lib/")
+target_link_libraries(${PROJECT_NAME} PRIVATE DemoLib)
