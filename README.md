@@ -47,7 +47,7 @@ Limitations:
 
 
 ## Building generator
-# MacOS
+### MacOS
 Example with usage brew
 ```
 brew install llvm boost ninja cmake
@@ -60,7 +60,7 @@ ninja
 CMake may ask you to point to LLVM search path. If it does, feed him argument similar to this:
 `-DLLVM_DIR=/usr/local/Cellar/llvm/5.0.0/lib/cmake/llvm`
 
-# Linux
+### Linux
 Install llvm >= 7, boost > 1.6, ninja, cmake with your package manager
 ```
 cd generator
