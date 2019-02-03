@@ -35,7 +35,11 @@ GeneratorArgs::GeneratorArgs(const std::vector<std::string>& args) {
     }
 
     if (vm.count(compiller) == 1) {
-        m_compillerPath = process::search_path(vm[compiller].as<std::string>());
+        filesystem::path compillerValue = vm[compiller].as<std::string>();
+        if (compillerValue.has_parent_path())
+            m_compillerPath = filesystem::canonical(compillerValue);
+        else
+            m_compillerPath = process::search_path(compillerValue);
         std::cout << "Detected compiller: " << m_compillerPath << std::endl;
     } else {
         throw std::runtime_error("Compiller is not defined");
