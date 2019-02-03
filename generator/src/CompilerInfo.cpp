@@ -54,6 +54,7 @@ CompilerInfo::CompilerInfo(const boost::filesystem::path& compilerPath)
         }
     } catch (const std::exception& e) {
         std::cout << "Can't read installation dir and includes for compiller: " << compilerPath << std::endl;
+        std::cout << e.what() << std::endl;
         throw;
     }
 }
