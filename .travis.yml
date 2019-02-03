@@ -5,11 +5,9 @@ compiler:
   - clang
 install:
   - brew install llvm ninja
-  - sudo rm /usr/bin/c++
-  - sudo ln -s `brew --prefix llvm`/bin/clang++ /usr/bin/c++
-  - sudo rm /usr/bin/cc
-  - sudo ln -s `brew --prefix llvm`/bin/clang /usr/bin/cc
 script:
+  - export MOJITO_CXX=`brew --prefix llvm`/bin/clang++
+  - export MOJITO_CC=`brew --prefix llvm`/bin/clang
   - mkdir generator/build
   - pushd generator/build
   - cmake .. -G "Ninja" -DLLVM_DIR="/usr/local/Cellar/llvm/7.0.1/lib/cmake/llvm"

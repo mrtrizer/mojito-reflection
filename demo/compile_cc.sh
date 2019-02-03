@@ -1,2 +1,2 @@
 #!/bin/sh
-$( dirname "${BASH_SOURCE[0]}")/../generator/compile.sh --reflection-name MojitoDemo --compiller "cc" $@
+$( dirname "${BASH_SOURCE[0]}")/../generator/compile_cc.sh --reflection-name=MojitoDemo $@
