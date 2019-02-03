@@ -1,0 +1,27 @@
+sudo: false
+language: cpp
+os: osx 
+compiler:
+  - clang
+install:
+  - brew install llvm ninja
+  - sudo rm /usr/bin/c++
+  - sudo ln -s `brew --prefix llvm`/bin/clang++ /usr/bin/c++
+  - sudo rm /usr/bin/cc
+  - sudo ln -s `brew --prefix llvm`/bin/clang /usr/bin/cc
+script:
+  - mkdir generator/build
+  - pushd generator/build
+  - cmake .. -G "Ninja" -DLLVM_DIR="/usr/local/Cellar/llvm/7.0.1/lib/cmake/llvm"
+  - ninja
+  - popd
+  - pushd demo
+  - cmake -G "Ninja" .
+  - ninja
+  - ./demo
+  - popd
+  - pushd tests
+  - cmake -G "Ninja" .
+  - ninja
+  - ./tests
+  - popd
