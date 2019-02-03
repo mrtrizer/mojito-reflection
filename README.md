@@ -1,4 +1,4 @@
-Mac: [![Build Status](https://travis-ci.org/mrtrizer/mojito-reflection.svg?branch=master)](https://travis-ci.org/mrtrizer/mojito-reflection)
+[![Build Status](https://travis-ci.org/mrtrizer/mojito-reflection.svg?branch=master)](https://travis-ci.org/mrtrizer/mojito-reflection)
 
 
 The repo includes reflection library for C++17 and generator for it.
