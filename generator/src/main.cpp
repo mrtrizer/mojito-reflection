@@ -267,7 +267,6 @@ int main(int argc, const char *argv[])
 
     auto reflectionDBPath = generatorArgs.reflectionOutPath();
     reflectionDBPath.append(generatorArgs.reflectionName());
-    reflectionDBPath.append("ReflectionDB.json");
     auto reflectionDB = PersistentReflectionDB(reflectionDBPath);
 
     CompilerInfo compilerInfo(generatorArgs.compillerPath());
@@ -342,8 +341,6 @@ int main(int argc, const char *argv[])
         
         compillerArgs.setCppInputFiles(injectedCppFilePaths);
         compillerArgs.addIncludePath(generatorArgs.reflectionIncludesPath());
-        
-        reflectionDB.save();
     }
     
     if (compillerArgs.output().extension() != ".o") {
@@ -352,6 +349,7 @@ int main(int argc, const char *argv[])
         auto reflectionCppPath = generatorArgs.reflectionOutPath();
         reflectionCppPath.append(generatorArgs.reflectionName());
         reflectionCppPath.append("Reflection.cpp");
+        filesystem::create_directories(reflectionCppPath.parent_path());
         writeTextFile(reflectionCppPath, reflectionCppData);
         compillerArgs.addCppInputFile(reflectionCppPath);
         filesystem::create_directories(reflectionCppPath.parent_path());

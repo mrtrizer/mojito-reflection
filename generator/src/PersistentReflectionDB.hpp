@@ -15,21 +15,12 @@ public:
         std::string functionName;
     };
     
-    const std::vector<ReflectedFile>& reflectedFiles() const { return m_reflectedFiles; }
+    std::vector<ReflectedFile> reflectedFiles() const;
     
     using FilePath = boost::filesystem::path;
     
     void addReflectedFile(const ReflectedFile& reflectedFile);
-    
-    void save();
-    
+
 private:
     boost::filesystem::path m_reflectionDbFilePath;
-    std::vector<ReflectedFile> m_reflectedFiles;
-    
-    inline static const char* reflectedFilesKey = "reflected_files";
-    inline static const char* cppFilePathKey = "cpp_file_path";
-    inline static const char* reflectedCppFilePathKey = "reflected_cpp_file_path";
-    inline static const char* outFilePathKey = "out_file_path";
-    inline static const char* functionNameKey = "function_name";
 };

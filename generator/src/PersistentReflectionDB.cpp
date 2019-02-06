@@ -1,65 +1,78 @@
 #include "PersistentReflectionDB.hpp"
 
+#include <iostream>
 #include <fstream>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/filesystem.hpp>
 
+const char* reflectedFilesKey = "reflected_files";
+const char* cppFilePathKey = "cpp_file_path";
+const char* reflectedCppFilePathKey = "reflected_cpp_file_path";
+const char* outFilePathKey = "out_file_path";
+const char* functionNameKey = "function_name";
+const char* jsonExtension = ".json";
+
 PersistentReflectionDB::PersistentReflectionDB(const boost::filesystem::path& reflectionDbFilePath)
     : m_reflectionDbFilePath(reflectionDbFilePath)
 {
-    using namespace boost::property_tree;
+    using namespace boost::filesystem;
+    if (exists(reflectionDbFilePath) && !is_directory(reflectionDbFilePath))
+        throw std::runtime_error("Reflection path should be dir: " + reflectionDbFilePath.string());
+}
 
-    std::ifstream ifs (reflectionDbFilePath.string());
+static PersistentReflectionDB::ReflectedFile readReflectedFile(boost::filesystem::path path) {
+    using namespace boost;
+
+    property_tree::ptree reflectedFileData;
+    property_tree::read_json(path.string(), reflectedFileData);
+
+    PersistentReflectionDB::ReflectedFile reflectedFile;
+    reflectedFile.cppFilePath = reflectedFileData.get_child(cppFilePathKey).get_value<std::string>();
+    reflectedFile.reflectedCppFilePath = reflectedFileData.get_child(reflectedCppFilePathKey).get_value<std::string>();
+    reflectedFile.outFilePath = reflectedFileData.get_child(outFilePathKey).get_value<std::string>();
+    reflectedFile.functionName = reflectedFileData.get_child(functionNameKey).get_value<std::string>();
     
-    if (!ifs.eof() && !ifs.fail()) {
-        ptree pt;
+    return reflectedFile;
+}
 
-        read_json(ifs, pt);
-        
-        for (const auto& value : pt.get_child(reflectedFilesKey)) {
-            auto reflectedFileData = value.second;
-            ReflectedFile reflectedFile;
-            reflectedFile.cppFilePath = reflectedFileData.get_child(cppFilePathKey).get_value<std::string>();
-            reflectedFile.reflectedCppFilePath = reflectedFileData.get_child(reflectedCppFilePathKey).get_value<std::string>();
-            reflectedFile.outFilePath = reflectedFileData.get_child(outFilePathKey).get_value<std::string>();
-            reflectedFile.functionName = reflectedFileData.get_child(functionNameKey).get_value<std::string>();
-            m_reflectedFiles.emplace_back(reflectedFile);
+std::vector<PersistentReflectionDB::ReflectedFile> PersistentReflectionDB::reflectedFiles() const
+{
+    using namespace boost;
+    
+    if (!filesystem::exists(m_reflectionDbFilePath))
+        return {};
+
+    std::vector<ReflectedFile> reflectedFiles;
+    
+    filesystem::directory_iterator dirIter {m_reflectionDbFilePath};
+    
+    using DirIter = filesystem::directory_iterator;
+    
+    for (DirIter dirIter {m_reflectionDbFilePath}; dirIter != DirIter{}; ++dirIter) {
+        std::cout << "JSON: " << dirIter->path() << "   "<< dirIter->path().extension() <<  std::endl;
+        if (dirIter->path().extension().string() == jsonExtension) {
+            reflectedFiles.emplace_back(readReflectedFile(dirIter->path()));
+            std::cout << "added" << std::endl;
         }
     }
+    
+    return reflectedFiles;
 }
 
 void PersistentReflectionDB::addReflectedFile(const ReflectedFile& reflectedFile)
 {
-    auto iter = std::find_if(
-        m_reflectedFiles.begin(),
-        m_reflectedFiles.end(),
-        [&reflectedFile](const auto& item) { return item.cppFilePath == reflectedFile.cppFilePath; });
-    if (iter == m_reflectedFiles.end())
-        m_reflectedFiles.emplace_back(reflectedFile);
-    else
-        *iter = reflectedFile;
-}
+    using namespace boost;
 
-void PersistentReflectionDB::save() {
-    using namespace boost::property_tree;
-    using namespace boost::filesystem;
+    property_tree::ptree reflectedFileData;
+    reflectedFileData.add(cppFilePathKey, reflectedFile.cppFilePath.string());
+    reflectedFileData.add(reflectedCppFilePathKey, reflectedFile.reflectedCppFilePath.string());
+    reflectedFileData.add(outFilePathKey, reflectedFile.outFilePath.string());
+    reflectedFileData.add(functionNameKey, reflectedFile.functionName);
     
-    ptree pt;
-    
-    ptree subtree;
-    
-    for (const auto& reflectedFile : m_reflectedFiles) {
-        ptree reflectedFileData;
-        reflectedFileData.add(cppFilePathKey, reflectedFile.cppFilePath.string());
-        reflectedFileData.add(reflectedCppFilePathKey, reflectedFile.reflectedCppFilePath.string());
-        reflectedFileData.add(outFilePathKey, reflectedFile.outFilePath.string());
-        reflectedFileData.add(functionNameKey, reflectedFile.functionName);
-        subtree.push_back(std::make_pair("", reflectedFileData));
-    }
-    
-    pt.add_child(reflectedFilesKey, subtree);
-    
-    create_directories(m_reflectionDbFilePath.parent_path());
-    write_json(m_reflectionDbFilePath.string(), pt);
+    create_directories(m_reflectionDbFilePath);
+    auto path = m_reflectionDbFilePath;
+    path.append(reflectedFile.functionName);
+    path.replace_extension(jsonExtension);
+    write_json(path.string(), reflectedFileData);
 }
