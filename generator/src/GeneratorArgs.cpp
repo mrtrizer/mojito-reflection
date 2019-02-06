@@ -37,7 +37,7 @@ GeneratorArgs::GeneratorArgs(const std::vector<std::string>& args) {
     if (vm.count(compiller) == 1) {
         filesystem::path compillerValue = vm[compiller].as<std::string>();
         if (compillerValue.has_parent_path())
-            m_compillerPath = filesystem::canonical(compillerValue);
+            m_compillerPath = filesystem::absolute(compillerValue).normalize();
         else
             m_compillerPath = process::search_path(compillerValue);
         std::cout << "Detected compiller: " << m_compillerPath << std::endl;

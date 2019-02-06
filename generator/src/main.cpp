@@ -219,22 +219,38 @@ std::string generateReflectionCpp(const PersistentReflectionDB& reflectionDB, co
 std::unordered_set<std::string> listOfObjects(const GeneratorArgs&, const CompilerArgs& compillerArgs, const CompilerInfo& info) {
     if (compillerArgs.objInputFiles().empty() && compillerArgs.libInputFiles().empty())
         return {"unknown"};
+    std::string operationKey = "-t";
+    auto arPath = info.clangInstallDir();
+    arPath.append("ar");
+    if (!filesystem::exists(arPath)) {
+        arPath = info.clangInstallDir();
+        arPath.append("llvm-ar");
+        operationKey = "t";
+    }
+    
     std::unordered_set<std::string> inputObjects;
-    for (const auto& lib : compillerArgs.libInputFiles()) {
-        auto arPath = info.clangInstallDir();
-        arPath.append("ar");
-        process::ipstream pipe_stream;
-        process::child process(arPath.string() + " -t " + lib.string(), process::std_out > pipe_stream);
+    try {
+        for (const auto& lib : compillerArgs.libInputFiles()) {
+
+            std::string arCommand = arPath.string() + ' ' +operationKey + ' ' + lib.string();
         
-        std::cout << "AR command: " << (arPath.string() + " -t " + lib.string()) << std::endl;
+            std::cout << "AR command: " << arCommand << std::endl;
         
-        std::string line;
-        while (process.running() && std::getline(pipe_stream, line) && !line.empty()) {
-            if (std::regex_match(line, std::regex(".*?\\.o"))) {
-                inputObjects.emplace(line);
-                std::cout << "Object from lib: " << line << std::endl;
+            process::ipstream pipe_stream;
+            process::child process(arCommand, process::std_out > pipe_stream);
+
+            std::string line;
+            while (process.running() && std::getline(pipe_stream, line) && !line.empty()) {
+                if (std::regex_match(line, std::regex(".*?\\.o"))) {
+                    inputObjects.emplace(line);
+                    std::cout << "Object from lib: " << line << std::endl;
+                }
             }
         }
+    } catch (const std::exception& e) {
+        std::cout << "Can't run archiver with path: " << arPath << std::endl;
+        std::cout << e.what() << std::endl;
+        throw;
     }
     for (const auto& obj : compillerArgs.objInputFiles())
         inputObjects.emplace(obj.filename().string());
