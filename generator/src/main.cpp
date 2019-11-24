@@ -259,8 +259,6 @@ std::unordered_set<std::string> listOfObjects(const GeneratorArgs&, const Compil
 
 int main(int argc, const char *argv[])
 {
-
-//    raise(SIGSTOP);
     GeneratorArgs generatorArgs(std::vector<std::string>{argv + 1, argv + argc});
     
     auto compillerArgs = parseCompillerArgs(generatorArgs.compillerPath(), generatorArgs.unrecognized());
