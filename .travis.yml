@@ -10,7 +10,7 @@ script:
   - export MOJITO_CC=`brew --prefix llvm`/bin/clang
   - mkdir generator/build
   - pushd generator/build
-  - cmake .. -G "Ninja" -DLLVM_DIR="/usr/local/Cellar/llvm/7.0.1/lib/cmake/llvm"
+  - cmake .. -G "Ninja" -DLLVM_DIR="/usr/local/Cellar/llvm/8.0.1/lib/cmake/llvm"
   - ninja
   - popd
   - pushd demo
