@@ -3,6 +3,8 @@
 # C++ Reflection generator
 
 The repo includes reflection library for C++17 and generator for it.
+The root idea was making reflection generation transparent by replacing the compiller with a reflection generator, that calls compiller under hood. This was the main concept and it comes with a huge drawback, the generator is hard to integrate into the project. So, I stopped developing once I got this issue. 
+Maybe it could become more universal if I made more efforts.
 
 ## About library
 Reflection library features:
